@@ -7,13 +7,30 @@ import { generateOccasionIcs } from "@/lib/engine/ics";
 import { generateTonightRunSheet, RunSheetSlot } from "@/lib/engine/run-sheet";
 import { PlanItemRecord, OccasionRecord } from "./plan-view";
 
+// Managed store that caches the timestamp and updates listeners on a 1-second interval
+let currentNow = Date.now();
+const listeners = new Set<() => void>();
+let timerIntervalId: ReturnType<typeof setInterval> | null = null;
+
 const timeStore = {
   subscribe(callback: () => void) {
-    const id = setInterval(callback, 1000);
-    return () => clearInterval(id);
+    listeners.add(callback);
+    if (listeners.size === 1) {
+      timerIntervalId = setInterval(() => {
+        currentNow = Date.now();
+        listeners.forEach((listener) => listener());
+      }, 1000);
+    }
+    return () => {
+      listeners.delete(callback);
+      if (listeners.size === 0 && timerIntervalId) {
+        clearInterval(timerIntervalId);
+        timerIntervalId = null;
+      }
+    };
   },
   getSnapshot() {
-    return Date.now();
+    return currentNow;
   },
   getServerSnapshot() {
     return 0;
