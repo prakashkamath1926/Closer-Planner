@@ -16,6 +16,9 @@ import { TradeoffSelector } from "./tradeoff-selector";
 import { VersionDrawer, type VersionItem } from "./version-drawer";
 import { ShieldCard } from "./shield-card";
 import { VendorSection } from "./vendor-section";
+import { CalendarView } from "./calendar-view";
+import { InvitationSection } from "./invitation-section";
+import { BlendScreen } from "./blend-screen";
 import { ClientDateTime } from "@/components/client-date-time";
 import type { ProposeTradeoffsResponse } from "@/lib/ai/schemas";
 
@@ -48,6 +51,7 @@ export interface OccasionRecord {
   urgency_mode: string;
   status: string;
   recipient_name?: string | null;
+  is_surprise?: boolean;
 }
 
 interface PlanViewProps {
@@ -343,6 +347,21 @@ export function PlanView({
             guestCount={occasion.guest_count}
             currency={occasion.currency || "INR"}
           />
+        </div>
+
+        {/* Timeline, Countdown & Calendar */}
+        <div className="mb-8">
+          <CalendarView occasion={occasion} items={items} />
+        </div>
+
+        {/* Invitation Mini-Site & Letter Deliverables */}
+        <div className="mb-8">
+          <InvitationSection occasion={occasion} />
+        </div>
+
+        {/* Our Blend: Pre-Event Vibe Match */}
+        <div className="mb-8">
+          <BlendScreen occasion={occasion} />
         </div>
 
         {/* Plan Items Section Header & Filters */}

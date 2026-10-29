@@ -31,6 +31,12 @@ import {
   VendorQuestionsResponse,
   vendorQuestionsResponseSchema,
   aiVendorQuestionsResponseSchema,
+  InvitationCopy,
+  invitationCopySchema,
+  aiInvitationCopySchema,
+  LetterHelperResponse,
+  letterHelperResponseSchema,
+  aiLetterHelperResponseSchema,
   UrgencyMode,
   FactStatus,
   FactSource,
@@ -46,29 +52,105 @@ import {
 } from "./prompts/propose-tradeoffs";
 import { buildParseQuotePrompt } from "./prompts/parse-quote";
 import { buildVendorQuestionsPrompt } from "./prompts/vendor-questions";
+import {
+  INVITATION_COPY_SYSTEM_PROMPT,
+  buildInvitationCopyPrompt,
+  InvitationPromptInput,
+  LETTER_HELPER_SYSTEM_PROMPT,
+  buildLetterHelperPrompt,
+  LetterHelperPromptInput,
+} from "./prompts/invitation";
 import { isOverBudget } from "@/lib/engine/budget";
 import { validateDependencyGraph } from "@/lib/engine/timeline";
 import { PlanItem } from "@/lib/engine/changes";
 
 /**
- * Privacy-safe error logging: logs strictly metadata (tool, model, error name, status code).
- * Never logs prompts, messages, request bodies, responses, headers, or user content.
+ * Privacy-safe error classification & diagnostic logging.
+ * Distinguishes provider errors, HTTP status codes, timeouts,
+ * structured-output failures, domain-schema validation failures, and retry exhaustion.
+ * Never logs prompts, messages, request bodies, responses, headers, user content, or secrets.
  * (Enforces rules.md Rule 14 & Rule 24).
  */
-function logAiFailure(tool: string, modelId: string, error: unknown) {
-  const err = error as { name?: string; statusCode?: number; status?: number; responseBody?: string } | undefined;
+export interface AiDiagnosticDetails {
+  category:
+    | "provider_error"
+    | "timeout"
+    | "structured_output_failure"
+    | "domain_schema_validation_failure"
+    | "retry_exhaustion"
+    | "credentials_missing"
+    | "unknown";
+  statusCode: number | string;
+  errorName: string;
+  detail?: string;
+  zodIssues?: string;
+}
+
+export function classifyAiError(error: unknown): AiDiagnosticDetails {
+  const err = error as
+    | {
+        name?: string;
+        statusCode?: number;
+        status?: number;
+        responseBody?: string;
+        issues?: Array<{ path?: (string | number)[]; message?: string }>;
+        message?: string;
+      }
+    | undefined;
+
   const errorName = err?.name || "Error";
   const statusCode = err?.statusCode ?? err?.status ?? "unknown";
-  let sanitizedDetail = "";
-  if (err?.responseBody) {
-    try {
-      const parsed = JSON.parse(err.responseBody);
-      sanitizedDetail = ` detail="${parsed?.error?.message || parsed?.error?.code || parsed?.error?.type || ""}"`;
-    } catch {
-      sanitizedDetail = "";
+
+  let category: AiDiagnosticDetails["category"] = "unknown";
+  let detail = "";
+  let zodIssues: string | undefined;
+
+  if (
+    errorName === "TimeoutError" ||
+    errorName === "AbortError" ||
+    err?.message?.toLowerCase().includes("timeout") ||
+    err?.message?.toLowerCase().includes("aborted")
+  ) {
+    category = "timeout";
+  } else if (errorName === "ZodError") {
+    category = "domain_schema_validation_failure";
+    if (Array.isArray(err?.issues)) {
+      zodIssues = err.issues.map((i) => `${(i.path || []).join(".") || "root"}: ${i.message}`).join("; ");
     }
+  } else if (errorName === "AI_NoObjectGeneratedError" || errorName === "JSONParseError") {
+    category = "structured_output_failure";
+  } else if (errorName === "AI_APICallError" || statusCode !== "unknown") {
+    category = "provider_error";
+    if (err?.responseBody) {
+      try {
+        const parsed = JSON.parse(err.responseBody);
+        detail = parsed?.error?.message || parsed?.error?.code || parsed?.error?.type || "";
+      } catch {
+        detail = "unparseable response body";
+      }
+    }
+  } else if (
+    err?.message?.toLowerCase().includes("credentials") ||
+    err?.message?.toLowerCase().includes("api key") ||
+    err?.message?.toLowerCase().includes("groq_api_key")
+  ) {
+    category = "credentials_missing";
   }
-  console.warn(`[AI Failure] tool="${tool}" model="${modelId}" error="${errorName}" status=${statusCode}${sanitizedDetail}`);
+
+  return {
+    category,
+    statusCode,
+    errorName,
+    detail: detail || (err?.message ? err.message.slice(0, 150) : undefined),
+    zodIssues,
+  };
+}
+
+function logAiFailure(tool: string, modelId: string, error: unknown) {
+  const diag = classifyAiError(error);
+  console.warn(
+    `[AI Failure] tool="${tool}" model="${modelId}" category="${diag.category}" error="${diag.errorName}" status=${diag.statusCode} detail="${diag.detail || diag.zodIssues || ""}"`,
+  );
 }
 
 /**
@@ -101,7 +183,10 @@ export function getModel(modelIdOverride?: string): LanguageModel {
  * Preserves the user's input completely and constructs 3 viable ideas.
  * Explicitly flagged with source: "fallback".
  */
-export function createDeterministicFallbackIdeas(input: IntakeRequest): ProposeIdeasResponse {
+export function createDeterministicFallbackIdeas(
+  input: IntakeRequest,
+  fallbackReason?: string,
+): ProposeIdeasResponse {
   const recipient = input.recipientName || "your guest of honor";
   const occasion = input.occasionType || "Celebration";
   const budget = input.budgetTotal || 50000;
@@ -232,6 +317,7 @@ export function createDeterministicFallbackIdeas(input: IntakeRequest): ProposeI
     ideas: [idea1, idea2, idea3],
     generalWhy: `Curated options aligned with your ${input.urgencyMode} timing and ${currency} ${budget} target budget.`,
     source: "fallback",
+    fallbackReason,
   };
 }
 
@@ -761,4 +847,121 @@ export async function getVendorQuestions(
 
   return createDeterministicFallbackQuestions(category);
 }
+
+// ---------------------------------------------------------------------------
+// Invitation Copy & Letter Helper (Task 9, prd.md 6.10)
+// ---------------------------------------------------------------------------
+
+export function createDeterministicFallbackInvitationCopy(
+  input: InvitationPromptInput,
+): InvitationCopy {
+  return {
+    headline: `Celebrating ${input.recipientName || "a Special Occasion"}`,
+    subheading: `A warm gathering in honor of a cherished milestone`,
+    invitationBody: `Please join us as we come together to celebrate ${input.recipientName || "our guest of honor"} with joyful memories, great food, and heartwarming company.`,
+    dressCodeNote: "Festive & comfortable attire",
+  };
+}
+
+export async function generateInvitationCopy(
+  input: InvitationPromptInput,
+  modelOverride?: LanguageModel,
+): Promise<InvitationCopy> {
+  const modelId = process.env.AI_MODEL || DEFAULT_AI_MODEL;
+
+  try {
+    const model = modelOverride || getModel();
+    const prompt = buildInvitationCopyPrompt(input);
+
+    const result = await generateText({
+      model,
+      output: Output.object({
+        schema: aiInvitationCopySchema,
+      }),
+      system: INVITATION_COPY_SYSTEM_PROMPT,
+      prompt,
+      maxOutputTokens: 500,
+      abortSignal: AbortSignal.timeout(15000),
+    });
+
+    if (result.output) {
+      return invitationCopySchema.parse({
+        headline: result.output.headline.slice(0, 120),
+        subheading: result.output.subheading.slice(0, 150),
+        invitationBody: result.output.invitationBody.slice(0, 400),
+        dressCodeNote: result.output.dressCodeNote ? result.output.dressCodeNote.slice(0, 100) : undefined,
+      });
+    }
+  } catch (err) {
+    logAiFailure("generateInvitationCopy", modelId, err);
+  }
+
+  return createDeterministicFallbackInvitationCopy(input);
+}
+
+export function createDeterministicFallbackLetterHelper(
+  input: LetterHelperPromptInput,
+): LetterHelperResponse {
+  return {
+    structureOutline: [
+      {
+        sectionTitle: "A Specific Memory or Moment",
+        guidancePrompt: `Think back to a moment when ${input.recipientName || "they"} made you smile, feel supported, or laugh out loud. What happened?`,
+        exampleStarter: `I still remember the time when we...`,
+      },
+      {
+        sectionTitle: "What You Admire or Cherish",
+        guidancePrompt: `What is a unique quality or quiet strength in ${input.recipientName || "them"} that you deeply appreciate?`,
+        exampleStarter: `What I cherish most about you is...`,
+      },
+      {
+        sectionTitle: "A Hope or Blessing for Their Journey",
+        guidancePrompt: `What do you wish for them in this next season or year ahead?`,
+        exampleStarter: `As you celebrate this milestone, my biggest wish for you is...`,
+      },
+    ],
+    suggestedClosing: `With love and deep appreciation,`,
+    source: "fallback",
+  };
+}
+
+export async function getLetterHelper(
+  input: LetterHelperPromptInput,
+  modelOverride?: LanguageModel,
+): Promise<LetterHelperResponse> {
+  const modelId = process.env.AI_MODEL || DEFAULT_AI_MODEL;
+
+  try {
+    const model = modelOverride || getModel();
+    const prompt = buildLetterHelperPrompt(input);
+
+    const result = await generateText({
+      model,
+      output: Output.object({
+        schema: aiLetterHelperResponseSchema,
+      }),
+      system: LETTER_HELPER_SYSTEM_PROMPT,
+      prompt,
+      maxOutputTokens: 1000,
+      abortSignal: AbortSignal.timeout(15000),
+    });
+
+    if (result.output && Array.isArray(result.output.structureOutline) && result.output.structureOutline.length >= 2) {
+      return letterHelperResponseSchema.parse({
+        structureOutline: result.output.structureOutline.slice(0, 5).map((s) => ({
+          sectionTitle: s.sectionTitle.slice(0, 80),
+          guidancePrompt: s.guidancePrompt.slice(0, 250),
+          exampleStarter: s.exampleStarter.slice(0, 250),
+        })),
+        suggestedClosing: result.output.suggestedClosing.slice(0, 120),
+        source: "ai",
+      });
+    }
+  } catch (err) {
+    logAiFailure("getLetterHelper", modelId, err);
+  }
+
+  return createDeterministicFallbackLetterHelper(input);
+}
+
 

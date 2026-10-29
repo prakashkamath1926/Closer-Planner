@@ -46,12 +46,13 @@ export interface ProposeTradeoffsPromptInput {
 
 export function buildProposeTradeoffsUserPrompt(input: ProposeTradeoffsPromptInput): string {
   const parts: string[] = [];
+  const affectedItems = input.affectedItems || [];
 
   parts.push("<user_data>");
   parts.push(`Occasion: ${input.occasionTitle}`);
   if (input.previousBudget && input.newBudget) {
     parts.push(`Budget Change: Reduced from ${input.currency} ${input.previousBudget} to ${input.currency} ${input.newBudget}`);
-    const nonNegTotal = input.affectedItems
+    const nonNegTotal = affectedItems
       .filter((i) => i.isNonNegotiable)
       .reduce((sum, i) => sum + i.estimatedCost, 0);
     const maxForRemaining = Math.max(0, input.newBudget - nonNegTotal);
@@ -67,7 +68,7 @@ export function buildProposeTradeoffsUserPrompt(input: ProposeTradeoffsPromptInp
   }
 
   parts.push("\nAffected or relevant plan items:");
-  for (const item of input.affectedItems) {
+  for (const item of affectedItems) {
     parts.push(
       `- [${item.id}] "${item.title}" | Cost: ${input.currency} ${item.estimatedCost} | Tag: ${item.intentTag || "none"} | Non-negotiable: ${item.isNonNegotiable ? "yes" : "no"} | Due: ${item.dueAt || "unspecified"} | Depends on: [${(item.dependsOn || []).join(", ")}]`,
     );

@@ -53,9 +53,16 @@ export async function POST(req: NextRequest) {
       source: ideasResponse.source || "ai",
     });
   } catch (error) {
-    console.error("Intake route error:", error);
+    console.error(
+      "[API /api/intake Error]",
+      (error as Error)?.name || "UnknownError",
+      (error as Error)?.message || String(error),
+    );
     return NextResponse.json(
-      { error: "Internal server error during celebration planning" },
+      {
+        error: "Internal server error during celebration planning",
+        detail: (error as Error)?.message || "Unknown error",
+      },
       { status: 500 },
     );
   }

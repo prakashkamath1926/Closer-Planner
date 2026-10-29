@@ -84,8 +84,47 @@ Done when:
 
 Status: DONE. All Task 7 acceptance criteria verified across unit, AI, and security tests.
 
+## Task 8: Calendar, countdown, .ics (prd.md 6.5)
+Build: In-app calendar (month & agenda view) showing event date and task due dates; urgency styling with explicit text labels for overdue/blocked/ready/done; countdown timer with timezone handling respecting `prefers-reduced-motion`; "Tonight" mode minute-by-minute run sheet respecting dependencies; `src/lib/engine/ics.ts` RFC 5545 export with VALARM reminders (1 day, 1 hour, 10 min) and generic text for surprise occasions.
+Done when:
+- [x] RFC 5545 valid .ics output with UID, DTSTART, DTSTAMP in UTC, and CRLF endings (verified in `tests/engine/ics.test.ts`).
+- [x] All 3 VALARMs present: -P1D, -PT1H, -PT10M (verified in `tests/engine/ics.test.ts`).
+- [x] Text escaping for backslashes, semicolons, commas, and newlines per RFC 5545 (verified in `tests/engine/ics.test.ts`).
+- [x] Generic text ("Something special") used for surprises unless organizer opts in (verified in `tests/engine/ics.test.ts`).
+- [x] Countdown calculations handle timezone transitions, same-day, and event date shifts (verified in `tests/engine/ics.test.ts`).
+- [x] Tonight mode run-sheet strictly schedules prerequisite tasks before dependent tasks (verified in `tests/engine/ics.test.ts`).
+- [x] Calendar UI provides Agenda view, Month view, Tonight run sheet, live countdown respecting `prefers-reduced-motion`, and .ics download.
+
+Status: DONE. All Task 8 acceptance criteria verified.
+
+## Task 9: Invitation / reveal mini-site (prd.md 6.10) plus letter helper
+Build: Invitation page generated from recipient-approved fields only (never plan items, budget, vendors, private notes); short AI copy (Zod-validated) with locked design tokens and SVG botanicals; live preview and editing; PNG export (`html-to-image`) and clean HTML download; HTML/SVG sanitizer (`dompurify` + server fallback) stripping `<script>`, `onerror=`, `javascript:`, and external URLs; Letter helper providing prompts and structure while user writes personal lines (labelled as draft for user); reviewed `mailto:` draft with no autonomous sending.
+Done when:
+- [x] Sanitizer strips `<script>`, inline event handlers (`onerror=`, `onload=`, `onclick=`), `javascript:`, and external image URLs (verified in `tests/engine/invitation.test.ts`).
+- [x] Invitation payload contains only allowlisted fields; hard negative assertions confirm absence of budget, avoid notes, owner_id, plan items, vendors, and notes (verified in `tests/engine/invitation.test.ts`).
+- [x] Standalone HTML deliverable generated using design tokens and SVG botanicals (verified in `tests/engine/invitation.test.ts`).
+- [x] Reviewed `mailto:` draft properly encoded without autonomous sending (verified in `tests/engine/invitation.test.ts`).
+- [x] Letter helper generates structured prompts and sentence starters while leaving personal writing to the organizer, labelled as draft for organizer (verified in `tests/engine/invitation.test.ts`).
+- [x] Invitation UI allows live text editing, PNG export, HTML download, and mailto drafting.
+
+Status: DONE. All Task 9 acceptance criteria verified.
+
+## Task 10: Our Blend, pre-event Vibe Match with manual friend entry (prd.md 6.12)
+Build: `src/lib/engine/blend.ts` with fixed set of 6 questions with typed answer choices; organizer answers + manual entry of trusted friend's answers (`respondent_role: 'friend'`, with customizable friend label); deterministic scoring based strictly on matching comparable answers divided by total comparable answers; safe zero-division handling (unanswered/incomparable questions excluded; when comparable count is zero, score is null and no percentage is shown); honest labeling strictly as "agreement between you and <name>", NEVER "her preference", and NEVER love, relationship quality, or predicted happiness; difference insights explaining how differences inform planning; two-tone lavender/rose screen (`design.md`); Supabase RLS on `blend_sessions` and `blend_answers` preventing cross-user access.
+Done when:
+- [x] Fixed set of 6 questions with typed answers in `engine/blend.ts`.
+- [x] Case & whitespace normalization for answers (verified in `tests/engine/blend.test.ts`).
+- [x] Comparable-only scoring; unanswered or incomparable questions excluded (verified in `tests/engine/blend.test.ts`).
+- [x] Zero comparable answers handled safely: no divide by zero, score is null, and percentage is not rendered (verified in `tests/engine/blend.test.ts`).
+- [x] Honest agreement labeling: labeled as "agreement between you and <name>", never "her preference", and never love or happiness; includes explanation of score meaning and limits (verified in `src/lib/engine/blend.ts` and `src/components/plan/blend-screen.tsx`).
+- [x] Differences broken down to inform planning with actionable tips (verified in `src/lib/engine/blend.ts` and `src/components/plan/blend-screen.tsx`).
+- [x] RLS on `blend_sessions` and `blend_answers` blocks unauthorized cross-user access (verified in `tests/engine/blend.test.ts` via PGlite).
+- [x] Boundary strictly maintained: NO recipient links and NO post-event Guess vs. Truth built.
+
+Status: DONE. All Task 10 acceptance criteria verified.
+
 ## Later tasks (do not start yet)
-8 Calendar, countdown, `.ics` · 9 Invitation or mini-site deliverable · 10 Our Blend (manual friend entry) · 11 Security and accessibility pass, Playwright journey, deploy · 12 Video, LinkedIn post, submit early.
+11 Security and accessibility pass, Playwright journey, deploy · 12 Video, LinkedIn post, submit early.
 
 ## Reminder
 Confirm the exact cutoff, timezone, and attempt rules on the PromptWars dashboard (reported: Sunday, November 1, 2026, 11:59 PM). Submit before the final day's evening.

@@ -102,6 +102,7 @@ export const proposeIdeasResponseSchema = z.object({
   ideas: z.array(celebrationIdeaSchema).length(3),
   generalWhy: z.string().max(300).optional(),
   source: z.enum(["ai", "fallback"]).default("ai"),
+  fallbackReason: z.string().optional(),
 });
 
 export type ProposeIdeasResponse = z.infer<typeof proposeIdeasResponseSchema>;
@@ -158,6 +159,7 @@ export const proposeTradeoffsResponseSchema = z.object({
   options: z.array(tradeoffOptionSchema).min(2).max(3),
   analysisSummary: z.string().max(400).optional(),
   source: z.enum(["ai", "fallback"]).default("ai"),
+  fallbackReason: z.string().optional(),
 });
 
 export type ProposeTradeoffsResponse = z.infer<typeof proposeTradeoffsResponseSchema>;
@@ -287,6 +289,50 @@ export type VendorQuestionsResponse = z.infer<typeof vendorQuestionsResponseSche
 export const aiVendorQuestionsResponseSchema = z.object({
   category: z.string(),
   questions: z.array(z.string()),
+});
+
+// ---------------------------------------------------------------------------
+// Deliverable: Invitation Copy & Letter Helper (Task 9, prd.md 6.10)
+// ---------------------------------------------------------------------------
+export const invitationCopySchema = z.object({
+  headline: z.string().min(1).max(120),
+  subheading: z.string().max(150),
+  invitationBody: z.string().min(1).max(400),
+  dressCodeNote: z.string().max(100).optional(),
+});
+
+export type InvitationCopy = z.infer<typeof invitationCopySchema>;
+
+export const letterHelperPromptSectionSchema = z.object({
+  sectionTitle: z.string().max(80),
+  guidancePrompt: z.string().max(250),
+  exampleStarter: z.string().max(250),
+});
+
+export const letterHelperResponseSchema = z.object({
+  structureOutline: z.array(letterHelperPromptSectionSchema).min(2).max(5),
+  suggestedClosing: z.string().max(120),
+  source: z.enum(["ai", "fallback"]),
+});
+
+export type LetterHelperResponse = z.infer<typeof letterHelperResponseSchema>;
+
+export const aiInvitationCopySchema = z.object({
+  headline: z.string(),
+  subheading: z.string(),
+  invitationBody: z.string(),
+  dressCodeNote: z.string().nullable(),
+});
+
+export const aiLetterHelperPromptSectionSchema = z.object({
+  sectionTitle: z.string(),
+  guidancePrompt: z.string(),
+  exampleStarter: z.string(),
+});
+
+export const aiLetterHelperResponseSchema = z.object({
+  structureOutline: z.array(aiLetterHelperPromptSectionSchema),
+  suggestedClosing: z.string(),
 });
 
 

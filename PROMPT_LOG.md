@@ -445,3 +445,148 @@ Fix the AI layer before Task 6. Pass tests with real structured outputs rather t
 - `task_today.md`: Task 7 marked as completed. Stopped before starting Task 8.
 
 **GenAI did:** generated the vendor engine, quote parser, prompt injection defense, comparison matrix, inquiry drafter, API routes, UI components, and test suites. **Developer did:** reviewed constraints, commanded step execution in order, and approved design decisions.
+
+## 2026-10-29: Task 8 — Calendar, Countdown, "Tonight" Run Sheet & .ics Export
+
+**Tools:** TypeScript (strict), Next.js 16 App Router, Vitest, Lucide React, Tailwind v4.
+
+**Prompt (summary):** 
+Implement Task 8 in order:
+1. In-app calendar (month and agenda view) showing the event date and task due dates with explicit urgency styling labels (overdue, blocked, ready, done).
+2. Countdown timer to the event (days, hours, minutes, seconds), correct for timezone, respecting `prefers-reduced-motion`.
+3. "Tonight" mode: minute-by-minute run sheet from the plan's tasks, topologically ordering tasks so prerequisites always precede dependent tasks.
+4. `src/lib/engine/ics.ts`: RFC 5545 `.ics` export with UID, DTSTAMP/DTSTART in UTC, CRLF endings, text escaping, 3 VALARMs (-P1D, -PT1H, -PT10M), and generic text ("Something special") for surprises unless organizer explicitly opts in.
+5. Tests for ICS output, VALARMs, escaping, surprise masking, countdown calculations across date shifts, and run-sheet dependency ordering.
+
+**What changed**
+1. **Engine Modules:**
+   - `src/lib/engine/ics.ts`: RFC 5545 generator with `escapeIcsText()` escaping `\`, `;`, `,`, `\n`; `formatIcsDateTime()` outputting UTC; VALARMs at 1 day, 1 hour, and 10 minutes; generic text masking for surprise occasions with organizer opt-in toggle; task sub-events with 30m reminders.
+   - `src/lib/engine/countdown.ts`: Timezone-accurate countdown calculator computing days, hours, minutes, seconds, same-day flag (`isToday`), and past event flag (`isPast`).
+   - `src/lib/engine/run-sheet.ts`: Tonight mode minute-by-minute run sheet scheduler utilizing `validateDependencyGraph()` to topologically sort items so prerequisites strictly precede dependent tasks, assigning minute slots and readiness badges (`ready`, `blocked`, `done`).
+2. **UI Components:**
+   - `src/components/plan/calendar-view.tsx`:
+     - Countdown header with live ticking using `useSyncExternalStore` for pure, idempotent renders; respects `prefers-reduced-motion`.
+     - Agenda View displaying chronological tasks and main event with text badges (`OVERDUE`, `UPCOMING`, `DONE`).
+     - Month View with interactive month navigation, highlighting event target day and due tasks.
+     - "Tonight" Run Sheet displaying numbered minute slots with dependency annotations and readiness indicators.
+     - Export `.ics` Calendar button with surprise shield secret title privacy toggle.
+   - `src/components/plan/plan-view.tsx`: Embedded `<CalendarView />` beneath vendor checklist.
+3. **Tests:**
+   - `tests/engine/ics.test.ts`: 11 tests verifying:
+     - Valid RFC 5545 calendar structure, UID, and UTC timestamps.
+     - All 3 VALARM triggers (-P1D, -PT1H, -PT10M).
+     - Character escaping per RFC 5545.
+     - Surprise title masking ("Something special") vs organizer opt-in reveal.
+     - Linked task sub-events.
+     - Countdown units across future, same-day, and shifted event dates.
+     - Topological run sheet ordering ensuring prerequisites precede dependent tasks and uncompleted dependencies mark tasks as blocked.
+
+**Outcome and evidence**
+- `npm run typecheck`: Passed with 0 errors.
+- `npm run lint`: Passed with 0 errors, 0 warnings.
+- `npm test`: 17 test files passed (117 tests passed, 2 skipped; 0 failed) in 40.02s.
+- `npm run build`: Succeeded in 2.0s with all routes compiled.
+- `task_today.md`: Task 8 marked as completed.
+
+**GenAI did:** implemented `ics.ts`, `countdown.ts`, `run-sheet.ts`, `calendar-view.tsx`, and test suites. **Developer did:** provided sequential task specifications and reviewed criteria.
+
+## 2026-10-29: Task 9 — Invitation / Reveal Mini-Site & Letter Helper Deliverables
+
+**Tools:** TypeScript (strict), Next.js 16 App Router, DOMPurify, html-to-image, Vitest, Lucide React, Tailwind v4.
+
+**Prompt (summary):** 
+Implement Task 9 in order:
+1. Invitation mini-site deliverable generated strictly from recipient-approved fields (never budget, plan items, vendors, or private notes).
+2. AI-generated short copy validated with Zod, with layout adhering to locked design tokens and SVG botanicals.
+3. Live preview with in-place text editing before finalization.
+4. Export PNG via `html-to-image` and download clean standalone HTML.
+5. HTML/SVG sanitizer (`src/lib/engine/sanitizer.ts`) using DOMPurify and headless server fallback stripping `<script>`, inline event handlers (`onerror=`, `onload=`, etc.), `javascript:` URLs, and external images.
+6. Personal Letter Helper: AI returns structural outline and prompts while the organizer writes their own personal lines (clearly labelled as draft for organizer).
+7. Reviewed `mailto:` email draft without autonomous sending.
+8. Tests verifying sanitizer, payload privacy allowlist, standalone HTML, and letter helper.
+
+**What changed**
+1. **Engine Modules:**
+   - `src/lib/engine/sanitizer.ts`: Dual-environment sanitizer utilizing DOMPurify in browser and regex-based AST sanitization in Node/SSR/Vitest; strips `<script>`, inline `on\w+` handlers, `javascript:`, and external `http(s)://` images.
+   - `src/lib/engine/invitation.ts`: `buildInvitationPayload()` with strict allowlist; hard negative assertions confirming absence of organizer-only fields; `generateInvitationHtml()` generating standalone HTML with locked tokens (`#FAF6F0`, `#9E526B`, `#2E1A2B`) and SVG botanicals; `buildMailtoDraft()` producing URL-encoded `mailto:` links.
+2. **AI Layer (`src/lib/ai/`):**
+   - Added `invitationCopySchema`, `letterHelperResponseSchema`, `aiInvitationCopySchema`, and `aiLetterHelperResponseSchema` in `schemas.ts`.
+   - `src/lib/ai/prompts/invitation.ts`: Prompts with `<user_data>` delimiters for invitation copy and 3-step letter helper outline.
+   - `generateInvitationCopy()` and `getLetterHelper()` in `orchestrator.ts` with timeout, 1 retry, and deterministic fallbacks.
+   - API endpoints: `POST /api/invitation/copy` and `POST /api/invitation/letter` with user rate limiting.
+3. **UI Components:**
+   - `src/components/plan/invitation-section.tsx`: Live editable invitation card preview, botanical SVG motif, AI copy drafting button, PNG export (`toPng`), standalone HTML download, reviewed `mailto:` draft, and interactive Personal Letter Helper modal with prompt guides and copy button.
+   - `src/components/plan/plan-view.tsx`: Embedded `<InvitationSection />`.
+4. **Tests:**
+   - `tests/engine/invitation.test.ts`: 10 tests verifying:
+     - Script tag and body stripping.
+     - Event handler stripping (`onerror`, `onclick`, `onload`).
+     - `javascript:` pseudo-protocol removal.
+     - External image tracking URL removal.
+     - Strict allowlist payload containing only approved fields and proving zero leakage of budget, avoid notes, owner_id, plan items, vendors, or private notes.
+     - Valid standalone HTML with design tokens and SVG botanicals.
+     - Reviewed `mailto:` draft formatting.
+     - Deterministic fallbacks for invitation copy and letter helper.
+
+**Outcome and evidence**
+- `npm run typecheck`: Passed with 0 errors.
+- `npm run lint`: Passed with 0 errors, 0 warnings.
+- `npm test`: 18 test files passed (127 tests passed, 2 skipped; 0 failed).
+- `task_today.md`: Task 9 marked as completed.
+
+**GenAI did:** implemented `sanitizer.ts`, `invitation.ts`, invitation prompts & orchestrator methods, `invitation-section.tsx`, API routes, and test suite. **Developer did:** prompted sequential task specifications and reviewed criteria.
+
+## 2026-10-29: Task 10 — Our Blend: Pre-Event Vibe Match with Manual Friend Entry
+
+**Tools:** TypeScript (strict), Next.js 16 App Router, Vitest, PGlite (PostgreSQL with RLS), Lucide React, Tailwind v4.
+
+**Prompt (summary):** 
+Implement Task 10 in order:
+1. `src/lib/engine/blend.ts`: fixed set of 6 questions with typed answers; organizer answers + manual entry of trusted friend's answers (`respondent_role: 'friend'`, with label).
+2. Deterministic score: matching comparable answers / total comparable answers * 100.
+3. Exclude unanswered/incomparable questions; handle zero comparable answers safely (no divide-by-zero, score is null, no percentage displayed).
+4. Label strictly as "agreement between you and <name>", NEVER "her preference", and NEVER love, relationship quality, or predicted happiness. Explain what the score represents and its limits, and how differences inform planning.
+5. Lavender/rose two-tone UI screen per `design.md`.
+6. Unit and integration tests covering comparable-only scoring, zero comparable answers, case and whitespace normalization, and RLS on `blend_sessions` and `blend_answers` using PGlite.
+7. Boundary: Do NOT build recipient links or Guess vs. Truth.
+
+**What changed**
+1. **Engine Modules:**
+   - `src/lib/engine/blend.ts`:
+     - 6 fixed questions with typed answers across energy level, crowd size, dining preference, pace, surprise appetite, and memory style.
+     - `normalizeAnswer()`: Normalizes whitespace and case to ensure robust string comparison.
+     - `calculateBlendScore()`: Excludes unanswered or incomparable questions; safely returns `score: null` and `scorePercentage: null` when `comparableCount === 0`.
+     - `formatScoreDisclosure()`: Honest copy generator clarifying that the score reflects alignment between organizer and friend on these specific questions, not recipient truth, love, or relationship satisfaction.
+     - Difference insight mappings providing practical planning advice for conflicting answers.
+2. **Database & API Routes:**
+   - `src/app/api/blend/route.ts`:
+     - Authenticated endpoint querying and saving `blend_sessions` and `blend_answers` with Supabase server client honoring RLS.
+     - Enforces ownership and prevents cross-user access.
+3. **UI Components:**
+   - `src/components/plan/blend-screen.tsx`:
+     - Two-tone lavender/rose header and cards matching `design.md` tokens.
+     - Step 1: Organizer answers.
+     - Step 2: Trusted friend answers (manual entry with friend name customization).
+     - Step 3: Alignment results displaying agreement percentage, zero-division safe state ("Answer questions to compare alignment"), question-by-question breakdown, and planning insights for differing answers.
+     - Honest score disclosure card highlighting the score's scope and explicit non-measures (not a test of love or recipient feelings).
+   - `src/components/plan/plan-view.tsx`: Embedded `<BlendScreen />` into the plan view.
+4. **Tests:**
+   - `tests/engine/blend.test.ts`: 6 tests verifying:
+     - Exact agreement score calculation across 6 matching answers.
+     - Partial agreement and difference detection.
+     - Exclusion of unanswered or missing questions.
+     - Zero comparable answers edge-case handling (returns `score: null`, `scorePercentage: null`, 0 comparable).
+     - Case and whitespace insensitivity in normalization.
+     - PostgreSQL RLS enforcement on `blend_sessions` and `blend_answers` using PGlite, confirming User B is blocked from reading User A's blend session data.
+
+**Outcome and evidence**
+- `npm run typecheck`: Passed with 0 errors.
+- `npm run lint`: Passed with 0 errors, 0 warnings.
+- `npm test`: 19 test files passed (133 tests passed, 2 skipped; 0 failed).
+- `npm run build`: Succeeded in 7.9s with all dynamic and static routes compiled.
+- `task_today.md`: Task 10 marked as completed with all checkboxes verified.
+
+**GenAI did:** implemented `blend.ts`, `blend-screen.tsx`, `api/blend/route.ts`, and `blend.test.ts`. **Developer did:** prompted sequential task specifications and reviewed criteria.
+
+
+
