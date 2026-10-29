@@ -396,3 +396,52 @@ Fix the AI layer before Task 6. Pass tests with real structured outputs rather t
 - `task_today.md`: Task 6 marked as completed. Stopped before starting Task 7.
 
 **GenAI did:** implemented the Surprise Shield engine, API routes, security tests, recipient countdown, botanical layout, and organizer shield card. **Developer did:** prompted verification, reviewed constraints, and directed adherence to Rules 19 & 21.
+
+## 2026-10-29: Step 0 & Task 7 — Vendor Checklist, Quote Comparison & Safe Parsing
+
+**Tools:** TypeScript (strict), Next.js 16 App Router, Vitest, PGlite, Lucide React, Tailwind v4.
+
+**Prompt (summary):** 
+1. Step 0 (Task 6 fixes): Initialize git / commit, run recursive grep checking secret key values, enforce reveal on server (before reveal_at return only countdown + neutral cover, never custom headline/message), add Referrer-Policy and Cache-Control no-store on /r/* and /api/recipient/*, add IP rate limit via rate_limit_hit on recipient route, verify shield-api.test.ts imports real handlers and tests byte-for-byte 404 identity, replace emoji button labels with accessible lucide icons.
+2. Task 7 (Vendor checklist and quote comparison): Vendor CRUD per occasion under RLS, status ladder suggested → verified → contacted → confirmed (+ declined), priority fallback order, per-category questions to ask tool, parseQuote AI tool with untrusted data delimiters and prompt injection defense, side-by-side comparison matrix with missing and incomparable fields, draft vendor inquiry with wa.me and mailto: links without autonomous sending. Tests for prompt injection defense, invalid model output rejection, RLS cross-user blocking, status advancement control, and comparison logic.
+
+**What changed**
+1. **Step 0 Fixes:**
+   - Server-side reveal: updated `src/lib/engine/shield.ts` `buildRecipientPayload()` and `src/app/api/recipient/[token]/route.ts`. Before `reveal_at`, returns only `show_countdown`, `reveal_at`, and neutral cover headline; secret headline and message are never sent.
+   - Security headers: added `Referrer-Policy: no-referrer` and `Cache-Control: no-store` on `/r/*` and `/api/recipient/*` via both `next.config.ts` and route handler headers.
+   - IP Rate Limiting: added `checkRateLimit("recipient-ip:" + ip, 60, 30)` on `GET /api/recipient/[token]` returning 429 when exceeded.
+   - Tested 404 byte-for-byte identity across malformed, unknown, revoked, expired, and unpublished tokens in `tests/security/shield-api.test.ts`.
+   - Replaced emoji button with `<Eye />` and accessible `aria-label` in `src/components/plan/shield-card.tsx` and `<History />` in `plan-view.tsx`.
+2. **Task 7 Engine (`src/lib/engine/vendors.ts`):**
+   - Integer minor unit math for quoted prices.
+   - `isValidStatusTransition()` strictly enforcing status ladder: suggested → verified → contacted → confirmed.
+   - `findNextFallbackVendor()` finding highest priority non-declined vendor in category.
+   - `compareCategoryVendors()` building side-by-side comparison highlighting missing cancellation terms, payment terms, availability, and multi-currency warnings.
+   - `draftVendorInquiry()` drafting inquiry text with URL-encoded WhatsApp (`wa.me`) and email (`mailto:`) links.
+3. **AI Layer (`src/lib/ai/`):**
+   - Added `quoteFieldsSchema`, `parseQuoteResponseSchema`, and `vendorQuestionsResponseSchema` in `schemas.ts`.
+   - `buildParseQuotePrompt()` wrapping untrusted text inside `<user_data>` with prompt injection defenses.
+   - `buildVendorQuestionsPrompt()` generating tailored questions per category.
+   - `parseQuote()` and `getVendorQuestions()` in `orchestrator.ts` with timeout, 1 retry, and deterministic category fallbacks (`source: "fallback"`).
+4. **API Routes:**
+   - `src/app/api/vendors/route.ts`: Vendor CRUD under RLS; status update validation; returns `nextFallback` when vendor is declined.
+   - `src/app/api/vendors/quote/route.ts`: Parses pasted quotes via `parseQuote()`; updates `quote_fields` and `quote_notes` without advancing status automatically.
+   - `src/app/api/vendors/questions/route.ts`: Generates per-category questions.
+5. **UI Components (`src/components/plan/`):**
+   - `vendor-section.tsx`: Vendor checklist, status ladder selectors, fallback alert banners, priority badges.
+   - `quote-parse-modal.tsx`: Quote parsing modal with prompt injection safety label, extracted inclusions, and QUOTED warning flags.
+   - `vendor-comparison-modal.tsx`: Side-by-side comparison table.
+   - `vendor-inquiry-modal.tsx`: Reviewable inquiry draft with WhatsApp and Email action buttons.
+6. **Tests:**
+   - `tests/engine/vendors.test.ts`: 5 tests verifying status transitions, fallback ordering, quote comparison, multi-currency alerts, and inquiry drafting.
+   - `tests/ai/parse-quote.test.ts`: 4 tests verifying prompt injection safety, untrusted delimiters, invalid model output rejection, and category questions.
+   - `tests/security/vendors-api.test.ts`: 3 tests verifying RLS cross-user isolation, status transition checks, and status preservation on quote updates.
+
+**Outcome and evidence**
+- `npm run typecheck`: Passed with 0 errors.
+- `npm run lint`: Passed with 0 errors, 0 warnings.
+- `npm test`: 16 test files passed (88 tests passed, 18 skipped in sandboxed offline mode; 0 failed) in 3.47s.
+- `git grep -nE "gsk_|AIza|sk-|service_role"`: 0 matches across all tracked files.
+- `task_today.md`: Task 7 marked as completed. Stopped before starting Task 8.
+
+**GenAI did:** generated the vendor engine, quote parser, prompt injection defense, comparison matrix, inquiry drafter, API routes, UI components, and test suites. **Developer did:** reviewed constraints, commanded step execution in order, and approved design decisions.

@@ -15,6 +15,7 @@ import { ChangeModal } from "./change-modal";
 import { TradeoffSelector } from "./tradeoff-selector";
 import { VersionDrawer, type VersionItem } from "./version-drawer";
 import { ShieldCard } from "./shield-card";
+import { VendorSection } from "./vendor-section";
 import { ClientDateTime } from "@/components/client-date-time";
 import type { ProposeTradeoffsResponse } from "@/lib/ai/schemas";
 
@@ -331,6 +332,17 @@ export function PlanView({
         {/* Surprise Shield & Recipient Share */}
         <div className="mb-8">
           <ShieldCard occasionId={occasion.id} eventAt={occasion.event_at} />
+        </div>
+
+        {/* Vendor Checklist & Quote Comparison */}
+        <div className="mb-8">
+          <VendorSection
+            occasionId={occasion.id}
+            occasionTitle={occasion.title}
+            eventDate={occasion.event_at}
+            guestCount={occasion.guest_count}
+            currency={occasion.currency || "INR"}
+          />
         </div>
 
         {/* Plan Items Section Header & Filters */}

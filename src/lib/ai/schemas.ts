@@ -234,4 +234,53 @@ export const aiProposeTradeoffsResponseSchema = z.object({
   source: z.enum(["ai", "fallback"]),
 });
 
+// ---------------------------------------------------------------------------
+// Pasted-Quote Parsing (prd.md 6.8)
+// ---------------------------------------------------------------------------
+export const quoteFieldsSchema = z.object({
+  price: z.number().nullable(),
+  currency: z.string().default("INR"),
+  included: z.array(z.string()),
+  extra_fees: z.array(z.string()),
+  availability_claim: z.string().nullable(),
+  cancellation_terms: z.string().nullable(),
+  payment_terms: z.string().nullable(),
+  missing: z.array(z.string()),
+  questions: z.array(z.string()),
+});
+
+export type QuoteFields = z.infer<typeof quoteFieldsSchema>;
+
+export const parseQuoteResponseSchema = z.object({
+  quoteFields: quoteFieldsSchema,
+  source: z.enum(["ai", "fallback"]),
+});
+
+export type ParseQuoteResponse = z.infer<typeof parseQuoteResponseSchema>;
+
+export const aiParseQuoteResponseSchema = z.object({
+  price: z.number().nullable(),
+  currency: z.string(),
+  included: z.array(z.string()),
+  extra_fees: z.array(z.string()),
+  availability_claim: z.string().nullable(),
+  cancellation_terms: z.string().nullable(),
+  payment_terms: z.string().nullable(),
+  missing: z.array(z.string()),
+  questions: z.array(z.string()),
+  source: z.enum(["ai", "fallback"]),
+});
+
+// ---------------------------------------------------------------------------
+// Vendor Questions (prd.md 6.8)
+// ---------------------------------------------------------------------------
+export const vendorQuestionsResponseSchema = z.object({
+  category: z.string(),
+  questions: z.array(z.string()).min(2).max(6),
+  source: z.enum(["ai", "fallback"]),
+});
+
+export type VendorQuestionsResponse = z.infer<typeof vendorQuestionsResponseSchema>;
+
+
 

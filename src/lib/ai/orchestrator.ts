@@ -23,6 +23,10 @@ import {
   TradeoffOption,
   ProposeTradeoffsResponse,
   aiProposeTradeoffsResponseSchema,
+  ParseQuoteResponse,
+  aiParseQuoteResponseSchema,
+  VendorQuestionsResponse,
+  vendorQuestionsResponseSchema,
 } from "./schemas";
 import {
   PROPOSE_IDEAS_SYSTEM_PROMPT,
@@ -33,6 +37,8 @@ import {
   buildProposeTradeoffsUserPrompt,
   ProposeTradeoffsPromptInput,
 } from "./prompts/propose-tradeoffs";
+import { buildParseQuotePrompt } from "./prompts/parse-quote";
+import { buildVendorQuestionsPrompt } from "./prompts/vendor-questions";
 import { isOverBudget } from "@/lib/engine/budget";
 import { validateDependencyGraph } from "@/lib/engine/timeline";
 import { PlanItem } from "@/lib/engine/changes";
@@ -499,3 +505,191 @@ export async function proposeTradeoffs(
     source: "fallback",
   };
 }
+
+// ---------------------------------------------------------------------------
+// Pasted-Quote Parsing (prd.md 6.8)
+// ---------------------------------------------------------------------------
+
+function extractBasicPrice(text: string): number | null {
+  const match = text.match(/(?:₹|Rs\.?|INR|\$|€|£)?\s*([0-9]{1,3}(?:,[0-9]{2,3})*(?:\.[0-9]{2})?|[0-9]{3,7})/i);
+  if (match) {
+    const clean = match[1].replace(/,/g, "");
+    const num = parseFloat(clean);
+    return !isNaN(num) && num > 0 ? num : null;
+  }
+  return null;
+}
+
+export function createDeterministicFallbackQuote(
+  pastedText: string,
+  category: string,
+  currency: string = "INR",
+): ParseQuoteResponse {
+  const price = extractBasicPrice(pastedText);
+  return {
+    quoteFields: {
+      price,
+      currency,
+      included: ["Standard vendor service as stated in inquiry"],
+      extra_fees: ["Taxes, overtime, and travel fees subject to confirmation"],
+      availability_claim: "Availability unverified - requires direct confirmation",
+      cancellation_terms: null,
+      payment_terms: null,
+      missing: [
+        "Cancellation and refund policy",
+        "Payment schedule and advance deposit",
+        "Overtime hourly rates",
+        "Exact breakdown of included deliverables",
+      ],
+      questions: [
+        `What is the exact advance deposit required to hold the date for ${category}?`,
+        "What is your cancellation and refund schedule?",
+        "Are there any additional setup, teardown, or service fees not listed?",
+      ],
+    },
+    source: "fallback",
+  };
+}
+
+export async function parseQuote(
+  pastedText: string,
+  category: string,
+  currency: string = "INR",
+  modelOverride?: LanguageModel,
+): Promise<ParseQuoteResponse> {
+  const modelId = process.env.AI_MODEL || DEFAULT_AI_MODEL;
+
+  try {
+    const model = modelOverride || getModel();
+    const prompt = buildParseQuotePrompt({
+      category,
+      pastedText,
+      defaultCurrency: currency,
+    });
+
+    const result = await generateText({
+      model,
+      output: Output.object({
+        schema: aiParseQuoteResponseSchema,
+      }),
+      prompt,
+      maxOutputTokens: 2500,
+      abortSignal: AbortSignal.timeout(20000),
+    });
+
+    if (result.output) {
+      return {
+        quoteFields: {
+          price: typeof result.output.price === "number" ? result.output.price : null,
+          currency: result.output.currency || currency,
+          included: Array.isArray(result.output.included) ? result.output.included : [],
+          extra_fees: Array.isArray(result.output.extra_fees) ? result.output.extra_fees : [],
+          availability_claim: result.output.availability_claim ?? null,
+          cancellation_terms: result.output.cancellation_terms ?? null,
+          payment_terms: result.output.payment_terms ?? null,
+          missing: Array.isArray(result.output.missing) ? result.output.missing : [],
+          questions: Array.isArray(result.output.questions) ? result.output.questions : [],
+        },
+        source: "ai",
+      };
+    }
+  } catch (err) {
+    logAiFailure("parseQuote", modelId, err);
+  }
+
+  // Graceful fallback: preserves quote data safely without executing injections
+  return createDeterministicFallbackQuote(pastedText, category, currency);
+}
+
+// ---------------------------------------------------------------------------
+// Vendor Questions to Ask (prd.md 6.8)
+// ---------------------------------------------------------------------------
+
+const CATEGORY_DEFAULT_QUESTIONS: Record<string, string[]> = {
+  venue: [
+    "What is the maximum noise curfew and setup buffer before the event?",
+    "What is your bad-weather, postponement, and cancellation refund policy?",
+    "Is outside catering, alcohol, and floral decor permitted?",
+    "Are cleaning, security, and electricity generator charges included?",
+  ],
+  catering: [
+    "What exactly is included in the per-plate cost (staff, live stations, crockery)?",
+    "What is the cutoff date for final guest count confirmation?",
+    "How are dietary restrictions, allergies, and children's portions handled?",
+    "What is your policy regarding leftover food?",
+  ],
+  photography: [
+    "How many hours of coverage and photographers are included?",
+    "What is the delivery timeline for teaser photos and full edited gallery?",
+    "What backup arrangements exist if the primary photographer is unwell?",
+    "Do you provide raw unedited footage?",
+  ],
+  decor: [
+    "Does your quote include complete teardown and post-event cleanup?",
+    "Are the flowers fresh or faux, and can centerpieces be repurposed?",
+    "What weather-proofing measures exist for outdoor decor?",
+    "Are sound, lighting, and stage rigging included in this quote?",
+  ],
+  music: [
+    "Do you supply the complete sound system, microphones, and cabling?",
+    "Can we provide a customized playlist and a do-not-play list?",
+    "What is your overtime rate per hour if the celebration extends?",
+  ],
+};
+
+export function createDeterministicFallbackQuestions(
+  category: string,
+): VendorQuestionsResponse {
+  const normalized = category.toLowerCase().trim();
+  const matchedKey = Object.keys(CATEGORY_DEFAULT_QUESTIONS).find((k) => normalized.includes(k));
+  const questions = matchedKey
+    ? CATEGORY_DEFAULT_QUESTIONS[matchedKey]
+    : [
+        "What specific services and deliverables are included in this quote?",
+        "What are your advance deposit milestones and cancellation refund terms?",
+        "Are there any additional service fees, overtime rates, or taxes?",
+        "What backup plan do you have in case of an emergency or equipment failure?",
+      ];
+
+  return {
+    category,
+    questions,
+    source: "fallback",
+  };
+}
+
+export async function getVendorQuestions(
+  category: string,
+  occasionType: string = "celebration",
+  modelOverride?: LanguageModel,
+): Promise<VendorQuestionsResponse> {
+  const modelId = process.env.AI_MODEL || DEFAULT_AI_MODEL;
+
+  try {
+    const model = modelOverride || getModel();
+    const prompt = buildVendorQuestionsPrompt({ category, occasionType });
+
+    const result = await generateText({
+      model,
+      output: Output.object({
+        schema: vendorQuestionsResponseSchema,
+      }),
+      prompt,
+      maxOutputTokens: 1000,
+      abortSignal: AbortSignal.timeout(15000),
+    });
+
+    if (result.output && Array.isArray(result.output.questions) && result.output.questions.length > 0) {
+      return {
+        category,
+        questions: result.output.questions,
+        source: "ai",
+      };
+    }
+  } catch (err) {
+    logAiFailure("getVendorQuestions", modelId, err);
+  }
+
+  return createDeterministicFallbackQuestions(category);
+}
+
