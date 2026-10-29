@@ -1,0 +1,174 @@
+/**
+ * POST /api/versions/restore
+ *
+ * Restores a historical plan version.
+ * - Restoring reproduces the exact snapshot and keeps the replaced state as a new version.
+ * - Pure, deterministic version progression.
+ */
+
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { createClient } from "@/lib/supabase/server";
+import { prepareRestore, PlanSnapshotData } from "@/lib/engine/versions";
+import type { Json } from "@/lib/supabase/database.types";
+
+const restoreVersionRequestSchema = z.object({
+  occasionId: z.string().uuid(),
+  targetVersionNo: z.number().int().positive(),
+});
+
+export async function POST(req: NextRequest) {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const parseResult = restoreVersionRequestSchema.safeParse(body);
+
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: "Invalid restore request", details: parseResult.error.issues },
+        { status: 400 },
+      );
+    }
+
+    const { occasionId, targetVersionNo } = parseResult.data;
+
+    // 1. Fetch target version snapshot
+    const { data: targetVersionRow, error: targetError } = await supabase
+      .from("plan_versions")
+      .select("*")
+      .eq("occasion_id", occasionId)
+      .eq("version_no", targetVersionNo)
+      .single();
+
+    if (targetError || !targetVersionRow) {
+      return NextResponse.json(
+        { error: `Version ${targetVersionNo} not found for this occasion` },
+        { status: 404 },
+      );
+    }
+
+    const targetSnapshot = targetVersionRow.snapshot as unknown as PlanSnapshotData;
+
+    // 2. Fetch current live state
+    const { data: currentOccasion } = await supabase
+      .from("occasions")
+      .select("*")
+      .eq("id", occasionId)
+      .single();
+
+    const { data: currentItems } = await supabase
+      .from("plan_items")
+      .select("*")
+      .eq("occasion_id", occasionId);
+
+    const { data: currentVendors } = await supabase
+      .from("vendors")
+      .select("*")
+      .eq("occasion_id", occasionId);
+
+    // 3. Fetch latest version number
+    const { data: latestVersions } = await supabase
+      .from("plan_versions")
+      .select("version_no")
+      .eq("occasion_id", occasionId)
+      .order("version_no", { ascending: false })
+      .limit(1);
+
+    const highestVersionNo = latestVersions && latestVersions[0] ? latestVersions[0].version_no : 0;
+
+    // 4. Prepare restore: captures current state as a new version snapshot
+    const restoreResult = prepareRestore(
+      {
+        occasion: currentOccasion || { id: occasionId, title: "Occasion" },
+        plan_items: currentItems || [],
+        vendors: currentVendors || [],
+      },
+      targetSnapshot,
+      highestVersionNo,
+      targetVersionNo,
+    );
+
+    // 5. Save the replaced state snapshot as the new version
+    const { error: saveReplacedError } = await supabase.from("plan_versions").insert({
+      occasion_id: occasionId,
+      version_no: restoreResult.newVersionNo,
+      snapshot: restoreResult.replacedStateSnapshot as unknown as Json,
+      change_summary: restoreResult.changeSummary,
+    });
+
+    if (saveReplacedError) {
+      console.error("Failed to save replaced state as new version:", saveReplacedError);
+      return NextResponse.json(
+        { error: "Failed to create version snapshot for replaced state" },
+        { status: 500 },
+      );
+    }
+
+    // 6. Restore occasion fields to match target snapshot
+    const restoredOcc = restoreResult.stateToRestore.occasion;
+    await supabase
+      .from("occasions")
+      .update({
+        title: restoredOcc.title,
+        budget_total: restoredOcc.budget_total ? String(restoredOcc.budget_total) : null,
+        event_at: restoredOcc.event_at || null,
+        guest_count: restoredOcc.guest_count || null,
+        urgency_mode: (restoredOcc.urgency_mode as "tonight" | "this_week" | "weeks_away") || "weeks_away",
+      })
+      .eq("id", occasionId);
+
+    // 7. Replace live plan_items with restored snapshot items
+    // First, delete current live items for this occasion
+    await supabase.from("plan_items").delete().eq("occasion_id", occasionId);
+
+    // Re-insert exact snapshot items
+    if (restoreResult.stateToRestore.plan_items.length > 0) {
+      const itemsToInsert = restoreResult.stateToRestore.plan_items.map((item, idx) => ({
+        id: item.id,
+        occasion_id: occasionId,
+        title: item.title,
+        category: (item.category as string) || "other",
+        intent_tag: (item.intent_tag as string) || null,
+        why: (item.why as string) || null,
+        status: (item.status as "todo" | "doing" | "done" | "skipped") || "todo",
+        estimated_cost: item.estimated_cost ? String(item.estimated_cost) : "0.00",
+        confirmed_cost: item.confirmed_cost ? String(item.confirmed_cost) : null,
+        cost_status: (item.cost_status as "estimate" | "quoted" | "confirmed") || "estimate",
+        depends_on: (item.depends_on as string[]) || [],
+        is_fallback: Boolean(item.is_fallback),
+        fallback_for: (item.fallback_for as string) || null,
+        sort_order: idx,
+      }));
+
+      const { error: insertRestoredError } = await supabase
+        .from("plan_items")
+        .insert(itemsToInsert);
+
+      if (insertRestoredError) {
+        console.error("Failed to insert restored items:", insertRestoredError);
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      restoredVersionNo: restoreResult.newVersionNo,
+      changeSummary: restoreResult.changeSummary,
+    });
+  } catch (error) {
+    console.error("Restore route error:", error);
+    return NextResponse.json(
+      { error: "Internal error restoring plan version" },
+      { status: 500 },
+    );
+  }
+}
+

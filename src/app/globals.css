@@ -1,0 +1,117 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/*
+  Blush & Botanical design tokens (LOCKED, see design.md).
+  Components use token utilities (bg-paper, text-plum, bg-rose ...) and never raw hex values.
+*/
+:root {
+  --paper: #fdfbf7;
+  --card: #ffffff;
+  --blush: #fff0f1;
+  --rose: #c2476b;
+  --rose-deep: #a63a5c;
+  --plum: #3b2430;
+  --mauve: #7a5c6b;
+  --lavender: #d9ccf0;
+  --peach: #ffc9b0;
+  --butter: #fbe7a1;
+  --sage: #a8c3a0;
+  --sage-deep: #4f5e47;
+  --shield: #2e1a2b;
+  --gold: #e8c27a;
+
+  /* shadcn/ui semantic tokens */
+  --background: var(--paper);
+  --foreground: var(--plum);
+  --card-foreground: var(--plum);
+  --popover: var(--card);
+  --popover-foreground: var(--plum);
+  --primary: var(--rose);
+  --primary-foreground: #ffffff;
+  --secondary: var(--blush);
+  --secondary-foreground: var(--plum);
+  --muted: var(--blush);
+  --muted-foreground: var(--mauve);
+  --accent: var(--lavender);
+  --accent-foreground: var(--plum);
+  --destructive: #b3261e;
+  --destructive-foreground: #ffffff;
+  --border: #ebdde0;
+  --input: #ebdde0;
+  --ring: var(--rose-deep);
+  --radius: 1rem;
+
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-blush: var(--blush);
+  --color-rose: var(--rose);
+  --color-rose-deep: var(--rose-deep);
+  --color-plum: var(--plum);
+  --color-mauve: var(--mauve);
+  --color-lavender: var(--lavender);
+  --color-peach: var(--peach);
+  --color-butter: var(--butter);
+  --color-sage: var(--sage);
+  --color-sage-deep: var(--sage-deep);
+  --color-shield: var(--shield);
+  --color-gold: var(--gold);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --font-heading: var(--font-fraunces), ui-serif, Georgia, serif;
+  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-hand: var(--font-caveat), cursive;
+
+  --shadow-paper: 0 4px 20px rgba(59, 36, 48, 0.06);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  line-height: 1.6;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+:focus-visible {
+  outline: 2px solid var(--rose-deep);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
