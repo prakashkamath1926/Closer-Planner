@@ -203,3 +203,4 @@ describe("engine/vendors: Vendor Checklist & Quote Comparison Engine", () => {
     expect(emailInquiry.mailtoUrl).toContain("mailto:events@heritagepalace.com?subject=");
   });
 });
+
