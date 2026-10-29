@@ -166,51 +166,55 @@ export type ProposeTradeoffsResponse = z.infer<typeof proposeTradeoffsResponseSc
 // Strict Schemas for AI Model Structured Output (Groq / OpenAI Strict Mode)
 // In OpenAI / Groq structured output, all properties must be listed in `required`.
 // Optional properties are represented as `.nullable()`.
+// Provider-level JSON schemas avoid length / item count constraints (minItems,
+// maxItems, maxLength) because OpenAI and Groq structured output validation
+// rejects generation with HTTP 400 when output deviates slightly from bounds.
+// Full domain validation (bounds, lengths, budget, dependencies) is strictly
+// applied in the application layer via domain Zod schemas.
 // ---------------------------------------------------------------------------
 export const aiRecipientFactSchema = z.object({
-  key: z.string().min(1).max(100),
-  value: z.string().min(1).max(300),
-  status: factStatusEnum,
-  source: factSourceEnum,
+  key: z.string(),
+  value: z.string(),
+  status: z.string(),
+  source: z.string().nullable(),
 });
 
 export const aiProposedPlanItemSchema = z.object({
-  title: z.string().min(1).max(120),
-  category: z.string().min(1).max(50),
-  intentTag: z.string().max(50).nullable(),
-  why: z.string().max(300).nullable(),
-  estimatedCost: z.number().nonnegative(),
-  costStatus: proposedCostStatusEnum,
+  title: z.string(),
+  category: z.string(),
+  intentTag: z.string().nullable(),
+  why: z.string().nullable(),
+  estimatedCost: z.number(),
+  costStatus: z.string(),
   isNonNegotiable: z.boolean(),
-  planB: z.string().max(300).nullable(),
+  planB: z.string().nullable(),
 });
 
 export const aiCelebrationIdeaSchema = z.object({
-  id: z.string().min(1),
-  title: z.string().min(1).max(120),
-  description: z.string().min(1).max(500),
-  whyItSuitsThem: z.string().min(1).max(400),
-  activities: z.array(z.string().min(1).max(200)).min(1).max(8),
-  estimatedCostMin: z.number().nonnegative(),
-  estimatedCostMax: z.number().nonnegative(),
-  currency: z.string().length(3),
-  requiredTime: z.string().min(1).max(100),
-  urgencyMode: urgencyModeEnum,
-  facts: z.array(aiRecipientFactSchema).max(10),
-  items: z.array(aiProposedPlanItemSchema).min(1).max(15),
+  id: z.string(),
+  title: z.string(),
+  description: z.string(),
+  whyItSuitsThem: z.string(),
+  activities: z.array(z.string()),
+  estimatedCostMin: z.number(),
+  estimatedCostMax: z.number(),
+  currency: z.string(),
+  requiredTime: z.string(),
+  urgencyMode: z.string(),
+  facts: z.array(aiRecipientFactSchema),
+  items: z.array(aiProposedPlanItemSchema),
 });
 
 export const aiProposeIdeasResponseSchema = z.object({
-  ideas: z.array(aiCelebrationIdeaSchema).length(3),
-  generalWhy: z.string().max(300).nullable(),
-  source: z.enum(["ai", "fallback"]),
+  ideas: z.array(aiCelebrationIdeaSchema),
+  generalWhy: z.string().nullable(),
 });
 
 export const aiTradeoffModifiedItemSchema = z.object({
   id: z.string(),
-  title: z.string().min(1).max(120).nullable(),
-  estimatedCost: z.number().nonnegative().nullable(),
-  costStatus: proposedCostStatusEnum.nullable(),
+  title: z.string().nullable(),
+  estimatedCost: z.number().nullable(),
+  costStatus: z.string().nullable(),
   dueAt: z.string().nullable(),
   dependsOn: z.array(z.string()).nullable(),
   intentTag: z.string().nullable(),
@@ -218,10 +222,10 @@ export const aiTradeoffModifiedItemSchema = z.object({
 });
 
 export const aiTradeoffOptionSchema = z.object({
-  id: z.string().min(1),
-  title: z.string().min(1).max(120),
-  description: z.string().min(1).max(400),
-  whyItWorks: z.string().min(1).max(300),
+  id: z.string(),
+  title: z.string(),
+  description: z.string(),
+  whyItWorks: z.string(),
   preservedIntentTags: z.array(z.string()),
   modifiedItems: z.array(aiTradeoffModifiedItemSchema),
   addedItems: z.array(aiProposedPlanItemSchema),
@@ -229,9 +233,8 @@ export const aiTradeoffOptionSchema = z.object({
 });
 
 export const aiProposeTradeoffsResponseSchema = z.object({
-  options: z.array(aiTradeoffOptionSchema).min(2).max(3),
-  analysisSummary: z.string().max(400).nullable(),
-  source: z.enum(["ai", "fallback"]),
+  options: z.array(aiTradeoffOptionSchema),
+  analysisSummary: z.string().nullable(),
 });
 
 // ---------------------------------------------------------------------------
@@ -268,7 +271,6 @@ export const aiParseQuoteResponseSchema = z.object({
   payment_terms: z.string().nullable(),
   missing: z.array(z.string()),
   questions: z.array(z.string()),
-  source: z.enum(["ai", "fallback"]),
 });
 
 // ---------------------------------------------------------------------------
@@ -281,6 +283,11 @@ export const vendorQuestionsResponseSchema = z.object({
 });
 
 export type VendorQuestionsResponse = z.infer<typeof vendorQuestionsResponseSchema>;
+
+export const aiVendorQuestionsResponseSchema = z.object({
+  category: z.string(),
+  questions: z.array(z.string()),
+});
 
 
 

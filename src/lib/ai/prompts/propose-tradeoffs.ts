@@ -20,7 +20,9 @@ RULES:
 5. Explain what each option changes, what it preserves, and why it works.
 6. NEVER present any price or availability as "confirmed". All costs must be "estimate" or "quoted".
 7. Focus changes only on affected items. Leave unrelated approved items unchanged.
-8. When proposing new items in addedItems, provide title, category, intentTag (or null), why (or null), estimatedCost, costStatus ("estimate" or "quoted"), isNonNegotiable (boolean), and planB (or null).`;
+8. When proposing new items in addedItems, provide title, category, intentTag (or null), why (or null), estimatedCost, costStatus ("estimate" or "quoted"), isNonNegotiable (boolean), and planB (or null).
+9. Be concise: keep descriptions and whyItWorks crisp and direct (under 2 sentences each). Focus strictly on affected items.
+10. STRUCTURE: The "options" field MUST be a JSON array of trade-off objects: [{"id": "tradeoff-1", ...}, ...]. Never output "options" as an object map.`;
 
 export interface ProposeTradeoffsPromptInput {
   occasionTitle: string;
@@ -49,6 +51,13 @@ export function buildProposeTradeoffsUserPrompt(input: ProposeTradeoffsPromptInp
   parts.push(`Occasion: ${input.occasionTitle}`);
   if (input.previousBudget && input.newBudget) {
     parts.push(`Budget Change: Reduced from ${input.currency} ${input.previousBudget} to ${input.currency} ${input.newBudget}`);
+    const nonNegTotal = input.affectedItems
+      .filter((i) => i.isNonNegotiable)
+      .reduce((sum, i) => sum + i.estimatedCost, 0);
+    const maxForRemaining = Math.max(0, input.newBudget - nonNegTotal);
+    parts.push(
+      `CRITICAL BUDGET CEILING: Total cost of all items in each proposed option must NOT exceed ${input.currency} ${input.newBudget}. Non-negotiable items total ${input.currency} ${nonNegTotal}, leaving at most ${input.currency} ${maxForRemaining} for remaining negotiable or added items.`,
+    );
   }
   if (input.previousEventAt && input.newEventAt) {
     parts.push(`Event Date Change: Moved earlier from ${input.previousEventAt} to ${input.newEventAt}`);
@@ -66,7 +75,7 @@ export function buildProposeTradeoffsUserPrompt(input: ProposeTradeoffsPromptInp
   parts.push("</user_data>");
 
   parts.push(
-    "\nGenerate 2 to 3 realistic trade-off options that adapt to these new constraints while protecting the core emotional intent of the celebration.",
+    "\nGenerate 2 to 3 realistic trade-off options as a JSON array of objects under the 'options' field that adapt to these new constraints while protecting the core emotional intent of the celebration.",
   );
 
   return parts.join("\n");

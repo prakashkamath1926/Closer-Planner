@@ -18,15 +18,22 @@ import { getAiEnv, DEFAULT_AI_MODEL } from "@/lib/env";
 import {
   IntakeRequest,
   ProposeIdeasResponse,
+  proposeIdeasResponseSchema,
   aiProposeIdeasResponseSchema,
   CelebrationIdea,
   TradeoffOption,
   ProposeTradeoffsResponse,
+  proposeTradeoffsResponseSchema,
   aiProposeTradeoffsResponseSchema,
   ParseQuoteResponse,
+  parseQuoteResponseSchema,
   aiParseQuoteResponseSchema,
   VendorQuestionsResponse,
   vendorQuestionsResponseSchema,
+  aiVendorQuestionsResponseSchema,
+  UrgencyMode,
+  FactStatus,
+  FactSource,
 } from "./schemas";
 import {
   PROPOSE_IDEAS_SYSTEM_PROMPT,
@@ -49,10 +56,19 @@ import { PlanItem } from "@/lib/engine/changes";
  * (Enforces rules.md Rule 14 & Rule 24).
  */
 function logAiFailure(tool: string, modelId: string, error: unknown) {
-  const err = error as { name?: string; statusCode?: number; status?: number } | undefined;
+  const err = error as { name?: string; statusCode?: number; status?: number; responseBody?: string } | undefined;
   const errorName = err?.name || "Error";
   const statusCode = err?.statusCode ?? err?.status ?? "unknown";
-  console.warn(`[AI Failure] tool="${tool}" model="${modelId}" error="${errorName}" status=${statusCode}`);
+  let sanitizedDetail = "";
+  if (err?.responseBody) {
+    try {
+      const parsed = JSON.parse(err.responseBody);
+      sanitizedDetail = ` detail="${parsed?.error?.message || parsed?.error?.code || parsed?.error?.type || ""}"`;
+    } catch {
+      sanitizedDetail = "";
+    }
+  }
+  console.warn(`[AI Failure] tool="${tool}" model="${modelId}" error="${errorName}" status=${statusCode}${sanitizedDetail}`);
 }
 
 /**
@@ -229,47 +245,91 @@ export async function proposeIdeas(
   options?: { model?: LanguageModel; modelId?: string },
 ): Promise<ProposeIdeasResponse> {
   const modelId = options?.modelId || process.env.AI_MODEL || DEFAULT_AI_MODEL;
-  try {
-    const model = options?.model || getModel(modelId);
 
-    const { output } = await generateText({
-      model,
-      output: Output.object({
-        schema: aiProposeIdeasResponseSchema,
-      }),
-      system: PROPOSE_IDEAS_SYSTEM_PROMPT,
-      prompt: buildProposeIdeasUserPrompt(input),
-      maxOutputTokens: 4500,
-      abortSignal: AbortSignal.timeout(20_000),
-      maxRetries: 1, // Rule 15: "at most one retry"
-    });
+  // Rule 15: "Invalid model output is rejected, retried once, and user input is preserved if it still fails."
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const model = options?.model || getModel(modelId);
 
-    // Enforce hard rule: no cost is ever confirmed and ensure proper formatting
-    const sanitizedIdeas: CelebrationIdea[] = output.ideas.map((idea) => ({
-      ...idea,
-      facts: (idea.facts || []).map((f) => ({
-        ...f,
-        source: f.source || "organizer",
-      })),
-      items: (idea.items || []).map((item) => ({
-        ...item,
-        intentTag: item.intentTag ?? null,
-        why: item.why ?? null,
-        planB: item.planB ?? null,
-        costStatus: item.costStatus === ("confirmed" as unknown) ? "estimate" : item.costStatus,
-      })),
-    }));
+      const { output } = await generateText({
+        model,
+        output: Output.object({
+          schema: aiProposeIdeasResponseSchema,
+        }),
+        system: PROPOSE_IDEAS_SYSTEM_PROMPT,
+        prompt: buildProposeIdeasUserPrompt(input),
+        maxOutputTokens: 2500,
+        abortSignal: AbortSignal.timeout(25_000),
+      });
 
-    return {
-      ideas: sanitizedIdeas,
-      generalWhy: output.generalWhy || undefined,
-      source: "ai",
-    };
-  } catch (error) {
-    logAiFailure("proposeIdeas", modelId, error);
-    // Preserves the user's input so they never lose progress (Rule 26)
-    return createDeterministicFallbackIdeas(input);
+      // Slice exactly 3 ideas from model output
+      const rawIdeas = output.ideas.slice(0, 3);
+      if (rawIdeas.length < 3) {
+        throw new Error(`Model returned only ${rawIdeas.length} ideas, expected at least 3`);
+      }
+
+      // Enforce hard rule: no cost is ever confirmed, sanitize lengths, and run through domain schema
+      const sanitizedIdeas: CelebrationIdea[] = rawIdeas.map((idea, idx) => ({
+        id: idea.id || `idea-${idx + 1}`,
+        title: (idea.title || `Celebration Option ${idx + 1}`).slice(0, 120),
+        description: (idea.description || "").slice(0, 500),
+        whyItSuitsThem: (idea.whyItSuitsThem || "").slice(0, 400),
+        activities: (idea.activities && idea.activities.length > 0 ? idea.activities : ["Celebration gathering"])
+          .slice(0, 8)
+          .map((a) => a.slice(0, 200)),
+        estimatedCostMin: Math.max(0, Number(idea.estimatedCostMin) || 0),
+        estimatedCostMax: Math.max(0, Number(idea.estimatedCostMax) || 0),
+        currency: (idea.currency || input.currency || "INR").slice(0, 3),
+        requiredTime: (idea.requiredTime || "Flexible").slice(0, 100),
+        urgencyMode: (["tonight", "this_week", "weeks_away"].includes(idea.urgencyMode) ? idea.urgencyMode : input.urgencyMode) as UrgencyMode,
+        facts: (idea.facts || []).slice(0, 10).map((f) => ({
+          key: (f.key || "Preference").slice(0, 100),
+          value: (f.value || "").slice(0, 300),
+          status: (["known", "possible", "needs_confirmation"].includes(f.status) ? f.status : "possible") as FactStatus,
+          source: (["organizer", "friend", "recipient"].includes(f.source || "") ? f.source : "organizer") as FactSource,
+        })),
+        items: (idea.items && idea.items.length > 0 ? idea.items : [
+          {
+            title: "Celebration coordination",
+            category: "other",
+            intentTag: null,
+            why: null,
+            estimatedCost: Math.round((input.budgetTotal || 50000) * 0.5),
+            costStatus: "estimate" as const,
+            isNonNegotiable: true,
+            planB: null,
+          },
+        ])
+          .slice(0, 15)
+          .map((item) => ({
+            title: (item.title || "Plan item").slice(0, 120),
+            category: (item.category || "other").slice(0, 50),
+            intentTag: item.intentTag ? item.intentTag.slice(0, 50) : null,
+            why: item.why ? item.why.slice(0, 300) : null,
+            estimatedCost: Math.max(0, Number(item.estimatedCost) || 0),
+            planB: item.planB ? item.planB.slice(0, 300) : null,
+            isNonNegotiable: Boolean(item.isNonNegotiable),
+            costStatus: (item.costStatus === "quoted" ? "quoted" : "estimate") as "estimate" | "quoted",
+          })),
+      }));
+
+      return proposeIdeasResponseSchema.parse({
+        ideas: sanitizedIdeas,
+        generalWhy: output.generalWhy ? output.generalWhy.slice(0, 300) : undefined,
+        source: "ai",
+      });
+    } catch (error) {
+      if (attempt === 0 && !options?.model) {
+        // Retry once before falling back
+        continue;
+      }
+      logAiFailure("proposeIdeas", modelId, error);
+      // Preserves the user's input so they never lose progress (Rule 26)
+      return createDeterministicFallbackIdeas(input);
+    }
   }
+
+  return createDeterministicFallbackIdeas(input);
 }
 
 /**
@@ -414,81 +474,90 @@ export async function proposeTradeoffs(
   const verifiedOptions: TradeoffOption[] = [];
   const modelId = options?.modelId || process.env.AI_MODEL || DEFAULT_AI_MODEL;
 
-  try {
-    const model = options?.model || getModel(modelId);
+  // Rule 15: "Invalid model output is rejected, retried once, and user input is preserved if it still fails."
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const model = options?.model || getModel(modelId);
 
-    const { output } = await generateText({
-      model,
-      output: Output.object({
-        schema: aiProposeTradeoffsResponseSchema,
-      }),
-      system: PROPOSE_TRADEOFFS_SYSTEM_PROMPT,
-      prompt: buildProposeTradeoffsUserPrompt(promptInput),
-      maxOutputTokens: 4000,
-      abortSignal: AbortSignal.timeout(20_000),
-      maxRetries: 1, // Rule 15: "at most one retry"
-    });
+      const { output } = await generateText({
+        model,
+        output: Output.object({
+          schema: aiProposeTradeoffsResponseSchema,
+        }),
+        system: PROPOSE_TRADEOFFS_SYSTEM_PROMPT,
+        prompt: buildProposeTradeoffsUserPrompt(promptInput),
+        maxOutputTokens: 2500,
+        abortSignal: AbortSignal.timeout(25_000),
+      });
 
-    // ENGINE VALIDATION PASS:
-    // Drop any option that fails budget ceiling or introduces dependency cycles/missing IDs
-    for (const option of output.options) {
-      const sanitizedOption: TradeoffOption = {
-        id: option.id,
-        title: option.title,
-        description: option.description,
-        whyItWorks: option.whyItWorks,
-        preservedIntentTags: option.preservedIntentTags || [],
-        modifiedItems: (option.modifiedItems || []).map((m) => ({
-          id: m.id,
-          title: m.title ?? undefined,
-          estimatedCost: m.estimatedCost ?? undefined,
-          costStatus: m.costStatus ?? undefined,
-          dueAt: m.dueAt ?? undefined,
-          dependsOn: m.dependsOn ?? undefined,
-          intentTag: m.intentTag ?? undefined,
-          why: m.why ?? undefined,
-        })),
-        addedItems: (option.addedItems || []).map((a) => ({
-          title: a.title,
-          category: a.category || "other",
-          intentTag: a.intentTag ?? null,
-          why: a.why ?? null,
-          estimatedCost: a.estimatedCost || 0,
-          costStatus: a.costStatus === ("confirmed" as unknown) ? "estimate" : a.costStatus,
-          isNonNegotiable: a.isNonNegotiable || false,
-          planB: a.planB ?? null,
-        })),
-        removedItemIds: option.removedItemIds || [],
-      };
+      // ENGINE VALIDATION PASS:
+      // Drop any option that fails budget ceiling or introduces dependency cycles/missing IDs
+      for (const option of output.options) {
+        const sanitizedOption: TradeoffOption = {
+          id: option.id || `tradeoff-${verifiedOptions.length + 1}`,
+          title: (option.title || "Trade-off Option").slice(0, 120),
+          description: (option.description || "").slice(0, 400),
+          whyItWorks: (option.whyItWorks || "").slice(0, 300),
+          preservedIntentTags: option.preservedIntentTags || [],
+          modifiedItems: (option.modifiedItems || []).map((m) => ({
+            id: m.id,
+            title: m.title ? m.title.slice(0, 120) : undefined,
+            estimatedCost: m.estimatedCost !== null && m.estimatedCost !== undefined ? Math.max(0, Number(m.estimatedCost)) : undefined,
+            costStatus: m.costStatus === "quoted" ? "quoted" : m.costStatus ? "estimate" : undefined,
+            dueAt: m.dueAt ?? undefined,
+            dependsOn: m.dependsOn ?? undefined,
+            intentTag: m.intentTag ? m.intentTag.slice(0, 50) : undefined,
+            why: m.why ? m.why.slice(0, 300) : undefined,
+          })),
+          addedItems: (option.addedItems || []).map((a) => ({
+            title: (a.title || "Added item").slice(0, 120),
+            category: (a.category || "other").slice(0, 50),
+            intentTag: a.intentTag ? a.intentTag.slice(0, 50) : null,
+            why: a.why ? a.why.slice(0, 300) : null,
+            estimatedCost: Math.max(0, Number(a.estimatedCost) || 0),
+            costStatus: a.costStatus === "quoted" ? "quoted" : "estimate",
+            isNonNegotiable: a.isNonNegotiable || false,
+            planB: a.planB ? a.planB.slice(0, 300) : null,
+          })),
+          removedItemIds: option.removedItemIds || [],
+        };
 
-      const simulatedPlan = simulateOptionPlan(baselineItems, sanitizedOption);
+        const simulatedPlan = simulateOptionPlan(baselineItems, sanitizedOption);
 
-      // Check 1: Budget Ceiling
-      if (targetBudget !== undefined && targetBudget !== null) {
-        if (isOverBudget(targetBudget, simulatedPlan)) {
+        // Check 1: Budget Ceiling
+        if (targetBudget !== undefined && targetBudget !== null) {
+          if (isOverBudget(targetBudget, simulatedPlan)) {
+            continue;
+          }
+        }
+
+        // Check 2: Dependency Graph Integrity & Acyclicity
+        const graphValidation = validateDependencyGraph(simulatedPlan);
+        if (!graphValidation.valid) {
           continue;
         }
+
+        verifiedOptions.push(sanitizedOption);
       }
 
-      // Check 2: Dependency Graph Integrity & Acyclicity
-      const graphValidation = validateDependencyGraph(simulatedPlan);
-      if (!graphValidation.valid) {
+      if (verifiedOptions.length >= 2) {
+        return proposeTradeoffsResponseSchema.parse({
+          options: verifiedOptions.slice(0, 3),
+          analysisSummary: `Trade-offs evaluated and verified by deterministic budget and timeline engine.`,
+          source: "ai",
+        });
+      }
+
+      // If fewer than 2 valid options returned by model on first attempt, retry once
+      if (attempt === 0 && !options?.model) {
         continue;
       }
-
-      verifiedOptions.push(sanitizedOption);
+    } catch (err) {
+      if (attempt === 0 && !options?.model) {
+        continue;
+      }
+      logAiFailure("proposeTradeoffs", modelId, err);
     }
-  } catch (err) {
-    logAiFailure("proposeTradeoffs", modelId, err);
-  }
-
-  // If AI returned at least 2 verified options, return as AI output
-  if (verifiedOptions.length >= 2) {
-    return {
-      options: verifiedOptions.slice(0, 3),
-      analysisSummary: `Trade-offs evaluated and verified by deterministic budget and timeline engine.`,
-      source: "ai",
-    };
   }
 
   // If fewer than 2 valid options passed, supplement with deterministic, engine-proven options
@@ -499,11 +568,11 @@ export async function proposeTradeoffs(
     }
   }
 
-  return {
+  return proposeTradeoffsResponseSchema.parse({
     options: verifiedOptions.slice(0, 3),
     analysisSummary: `Generated verified trade-off options respecting the ${promptInput.currency} ${targetBudget} target and timeline constraints.`,
     source: "fallback",
-  };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -578,7 +647,7 @@ export async function parseQuote(
     });
 
     if (result.output) {
-      return {
+      return parseQuoteResponseSchema.parse({
         quoteFields: {
           price: typeof result.output.price === "number" ? result.output.price : null,
           currency: result.output.currency || currency,
@@ -591,7 +660,7 @@ export async function parseQuote(
           questions: Array.isArray(result.output.questions) ? result.output.questions : [],
         },
         source: "ai",
-      };
+      });
     }
   } catch (err) {
     logAiFailure("parseQuote", modelId, err);
@@ -672,7 +741,7 @@ export async function getVendorQuestions(
     const result = await generateText({
       model,
       output: Output.object({
-        schema: vendorQuestionsResponseSchema,
+        schema: aiVendorQuestionsResponseSchema,
       }),
       prompt,
       maxOutputTokens: 1000,
@@ -680,11 +749,11 @@ export async function getVendorQuestions(
     });
 
     if (result.output && Array.isArray(result.output.questions) && result.output.questions.length > 0) {
-      return {
+      return vendorQuestionsResponseSchema.parse({
         category,
-        questions: result.output.questions,
+        questions: result.output.questions.slice(0, 6),
         source: "ai",
-      };
+      });
     }
   } catch (err) {
     logAiFailure("getVendorQuestions", modelId, err);

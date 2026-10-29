@@ -29,7 +29,9 @@ RULES:
    - "this_week": realistic tasks achievable within days.
    - "weeks_away": comprehensive milestones and booking steps.
 7. Stay within or very close to the organizer's target budget.
-8. Every idea must include 3 to 6 practical plan items with intent tags (e.g. "nostalgia", "togetherness", "surprise", "relaxation").`;
+8. Every idea must include 2 to 3 recipient facts and 3 practical plan items with intent tags (e.g. "nostalgia", "togetherness", "surprise", "relaxation").
+9. Keep descriptions, whys, and titles concise, crisp, and direct (under 2 sentences each) to ensure clean, complete structured output.
+10. STRUCTURE: The "ideas" field MUST be a JSON array of idea objects: [{"id": "idea-1", ...}, {"id": "idea-2", ...}, {"id": "idea-3", ...}]. Never output "ideas" as a key-value object map.`;
 
 export function buildProposeIdeasUserPrompt(input: IntakeRequest): string {
   const parts: string[] = [];
@@ -53,7 +55,7 @@ export function buildProposeIdeasUserPrompt(input: IntakeRequest): string {
   parts.push("</user_data>");
 
   parts.push(
-    "\nBased on the data above, generate exactly 3 distinct celebration ideas that honor the user's intent and constraints.",
+    "\nBased on the data above, generate 3 distinct celebration ideas as a JSON array of 3 objects under the 'ideas' field that honor the user's intent and constraints.",
   );
 
   return parts.join("\n");
