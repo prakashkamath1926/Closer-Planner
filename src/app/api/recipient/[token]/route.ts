@@ -7,20 +7,37 @@ import {
   buildRecipientPayload,
   GENERIC_NOT_FOUND_RESPONSE,
 } from "@/lib/engine/shield";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 
 interface RouteParams {
   params: Promise<{ token: string }>;
+}
+
+export const RECIPIENT_RESPONSE_HEADERS = {
+  "Cache-Control": "no-store",
+  "Referrer-Policy": "no-referrer",
+} as const;
+
+function getClientIp(req: NextRequest): string {
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0].trim();
+  const realIp = req.headers.get("x-real-ip");
+  if (realIp) return realIp.trim();
+  return "127.0.0.1";
 }
 
 /**
  * GET /api/recipient/[token]
  *
  * Rules:
- * - HARD RULE 19: Returns ONLY the allowlisted fields from recipient_view
- *   ({ headline, message, reveal_at, show_countdown }).
- * - Never spreads database rows or leaks plan items, budget, vendors, or notes.
+ * - HARD RULE 19: Returns ONLY allowlisted fields from recipient_view.
+ *   Never spreads database rows or leaks plan items, budget, vendors, or notes.
  * - HARD RULE 21: Every failure (invalid token, expired, revoked, unpublished, error)
  *   returns the EXACT identical generic 404 response.
+ * - Server-side reveal (prd.md 6.11): before reveal_at, returns only show_countdown and
+ *   reveal_at with neutral cover state, never headline or message.
+ * - Security headers: Cache-Control: no-store and Referrer-Policy: no-referrer.
+ * - Rate limiting: IP-based rate limiting on public token queries via rate_limit_hit.
  * - Uses service_role client strictly for authorized public recipient lookups.
  * - Supports organizer "preview as recipient" when token === "preview" and owner is authenticated.
  */
@@ -28,9 +45,12 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   try {
     const { token } = await params;
 
-    // Reject malformed token shapes early
+    // Reject malformed token shapes early with identical 404
     if (!isValidTokenFormat(token)) {
-      return NextResponse.json(GENERIC_NOT_FOUND_RESPONSE, { status: 404 });
+      return NextResponse.json(GENERIC_NOT_FOUND_RESPONSE, {
+        status: 404,
+        headers: RECIPIENT_RESPONSE_HEADERS,
+      });
     }
 
     // -------------------------------------------------------------------------
@@ -39,7 +59,10 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     if (token === "preview") {
       const occasionId = req.nextUrl.searchParams.get("occasionId");
       if (!occasionId) {
-        return NextResponse.json(GENERIC_NOT_FOUND_RESPONSE, { status: 404 });
+        return NextResponse.json(GENERIC_NOT_FOUND_RESPONSE, {
+          status: 404,
+          headers: RECIPIENT_RESPONSE_HEADERS,
+        });
       }
 
       // Check owner authentication via user server client
@@ -49,7 +72,10 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       } = await supabaseUser.auth.getUser();
 
       if (!user) {
-        return NextResponse.json(GENERIC_NOT_FOUND_RESPONSE, { status: 404 });
+        return NextResponse.json(GENERIC_NOT_FOUND_RESPONSE, {
+          status: 404,
+          headers: RECIPIENT_RESPONSE_HEADERS,
+        });
       }
 
       // Verify occasion ownership
@@ -61,23 +87,45 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         .maybeSingle();
 
       if (!occasion) {
-        return NextResponse.json(GENERIC_NOT_FOUND_RESPONSE, { status: 404 });
+        return NextResponse.json(GENERIC_NOT_FOUND_RESPONSE, {
+          status: 404,
+          headers: RECIPIENT_RESPONSE_HEADERS,
+        });
       }
 
-      // Load recipient_view for this occasion (preview shows current draft even if unpublished)
+      // Load recipient_view for this occasion (preview shows revealed draft even if unpublished)
       const { data: recipientView } = await supabaseUser
         .from("recipient_view")
         .select("*")
         .eq("occasion_id", occasionId)
         .maybeSingle();
 
-      const payload = buildRecipientPayload(recipientView || {});
-      return NextResponse.json(payload, { status: 200 });
+      const payload = buildRecipientPayload(recipientView || {}, { isPreview: true });
+      return NextResponse.json(payload, {
+        status: 200,
+        headers: RECIPIENT_RESPONSE_HEADERS,
+      });
     }
 
     // -------------------------------------------------------------------------
     // Public recipient access via token hash
     // -------------------------------------------------------------------------
+    // IP Rate limit on public recipient queries
+    const clientIp = getClientIp(req);
+    const rateLimit = await checkRateLimit(`recipient-ip:${clientIp}`, 60, 30);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: "Too Many Requests" },
+        {
+          status: 429,
+          headers: {
+            ...RECIPIENT_RESPONSE_HEADERS,
+            "Retry-After": String(rateLimit.retryAfterSeconds ?? 60),
+          },
+        },
+      );
+    }
+
     const tokenHash = hashShareToken(token);
     const admin = createAdminClient();
 
@@ -92,7 +140,10 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       .maybeSingle();
 
     if (linkError || !link) {
-      return NextResponse.json(GENERIC_NOT_FOUND_RESPONSE, { status: 404 });
+      return NextResponse.json(GENERIC_NOT_FOUND_RESPONSE, {
+        status: 404,
+        headers: RECIPIENT_RESPONSE_HEADERS,
+      });
     }
 
     // 2. Load recipient_view strictly where published = true
@@ -105,22 +156,24 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
     if (viewError || !viewRow) {
       // Unpublished or non-existent view returns the same generic 404
-      return NextResponse.json(GENERIC_NOT_FOUND_RESPONSE, { status: 404 });
+      return NextResponse.json(GENERIC_NOT_FOUND_RESPONSE, {
+        status: 404,
+        headers: RECIPIENT_RESPONSE_HEADERS,
+      });
     }
 
-    // 3. Build strictly allowlisted response via shield engine (never spreads DB row)
-    const payload = buildRecipientPayload(viewRow);
+    // 3. Build strictly allowlisted response (enforces reveal_at on server)
+    const payload = buildRecipientPayload(viewRow, { isPreview: false });
 
     return NextResponse.json(payload, {
       status: 200,
-      headers: {
-        // Prevent aggressive caching of the recipient view
-        "Cache-Control": "private, no-cache, no-store, must-revalidate",
-      },
+      headers: RECIPIENT_RESPONSE_HEADERS,
     });
   } catch {
     // Failures return the exact same generic 404 (Rule 21)
-    return NextResponse.json(GENERIC_NOT_FOUND_RESPONSE, { status: 404 });
+    return NextResponse.json(GENERIC_NOT_FOUND_RESPONSE, {
+      status: 404,
+      headers: RECIPIENT_RESPONSE_HEADERS,
+    });
   }
 }
-

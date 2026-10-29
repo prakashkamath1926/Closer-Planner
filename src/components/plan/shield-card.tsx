@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { Eye, Key } from "lucide-react";
 
 interface ShareLinkItem {
   id: string;
@@ -260,9 +261,11 @@ export function ShieldCard({ occasionId, eventAt }: ShieldCardProps) {
             href={`/r/preview?occasionId=${occasionId}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-full border border-mauve/20 bg-paper px-3.5 py-1.5 text-xs font-semibold text-plum hover:bg-blush transition-colors"
+            aria-label="Preview celebration view as recipient"
+            className="inline-flex items-center gap-1.5 rounded-full border border-mauve/20 bg-paper px-3.5 py-1.5 text-xs font-semibold text-plum hover:bg-blush transition-colors"
           >
-            👁️ Preview as Recipient
+            <Eye className="h-3.5 w-3.5 text-mauve" aria-hidden="true" />
+            <span>Preview as Recipient</span>
           </Link>
           <button
             type="button"
@@ -406,7 +409,7 @@ export function ShieldCard({ occasionId, eventAt }: ShieldCardProps) {
         {newRawLink && (
           <div className="mt-4 rounded-2xl border border-gold/40 bg-butter/30 p-4">
             <div className="flex items-center gap-2 text-xs font-bold text-plum">
-              <span>🔑</span>
+              <Key className="h-3.5 w-3.5 text-gold shrink-0" aria-hidden="true" />
               <span>New Recipient Link Generated (Shown Once)</span>
             </div>
             <p className="mt-1 text-xs text-mauve">

@@ -29,22 +29,69 @@ export interface RecipientPayload {
   message: string | null;
   reveal_at: string | null;
   show_countdown: boolean;
+  is_revealed: boolean;
+}
+
+export interface BuildRecipientPayloadOptions {
+  isPreview?: boolean;
+  nowMs?: number;
 }
 
 /**
  * Builds the strictly allowlisted public recipient payload.
  * HARD RULE: Never spreads DB rows or exposes forbidden fields
  * (budget, vendors, plan items, notes, venue, gift, owner_id, occasion title).
+ *
+ * Server-side reveal enforcement (prd.md 6.11):
+ * - Before `reveal_at`: returns only { show_countdown, reveal_at } plus neutral cover state
+ *   (DEFAULT_RECIPIENT_HEADLINE), message is null, is_revealed is false.
+ * - After `reveal_at`: returns full allowlisted payload with is_revealed = true.
+ * - Preview mode: always returns revealed state for organizer curation.
  */
-export function buildRecipientPayload(row: RecipientViewInput): RecipientPayload {
+export function buildRecipientPayload(
+  row: RecipientViewInput,
+  options: BuildRecipientPayloadOptions = {},
+): RecipientPayload {
+  const nowMs = options.nowMs ?? Date.now();
+  const revealAt =
+    typeof row.reveal_at === "string" && row.reveal_at.trim().length > 0 ? row.reveal_at.trim() : null;
+  const showCountdown = typeof row.show_countdown === "boolean" ? row.show_countdown : true;
+
+  if (options.isPreview) {
+    return {
+      headline:
+        typeof row.headline === "string" && row.headline.trim().length > 0
+          ? row.headline.trim()
+          : DEFAULT_RECIPIENT_HEADLINE,
+      message: typeof row.message === "string" && row.message.trim().length > 0 ? row.message : null,
+      reveal_at: revealAt,
+      show_countdown: showCountdown,
+      is_revealed: true,
+    };
+  }
+
+  // Server-side reveal check
+  const isRevealed = revealAt ? nowMs >= new Date(revealAt).getTime() : true;
+
+  if (!isRevealed) {
+    return {
+      headline: DEFAULT_RECIPIENT_HEADLINE,
+      message: null,
+      reveal_at: revealAt,
+      show_countdown: showCountdown,
+      is_revealed: false,
+    };
+  }
+
   return {
     headline:
       typeof row.headline === "string" && row.headline.trim().length > 0
         ? row.headline.trim()
         : DEFAULT_RECIPIENT_HEADLINE,
     message: typeof row.message === "string" && row.message.trim().length > 0 ? row.message : null,
-    reveal_at: typeof row.reveal_at === "string" && row.reveal_at.trim().length > 0 ? row.reveal_at : null,
-    show_countdown: typeof row.show_countdown === "boolean" ? row.show_countdown : true,
+    reveal_at: revealAt,
+    show_countdown: showCountdown,
+    is_revealed: true,
   };
 }
 

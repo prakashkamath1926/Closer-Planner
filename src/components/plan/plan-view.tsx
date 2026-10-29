@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
+import { History } from "lucide-react";
 import { calculateBudget, type BudgetSummary } from "@/lib/engine/budget";
 import {
   categorizeTaskReadiness,
@@ -244,9 +245,11 @@ export function PlanView({
             <button
               type="button"
               onClick={() => setIsVersionDrawerOpen(true)}
-              className="rounded-full border border-mauve/20 bg-white px-3.5 py-1.5 text-xs font-semibold text-plum hover:bg-blush transition-colors"
+              aria-label="View plan version history"
+              className="inline-flex items-center gap-1.5 rounded-full border border-mauve/20 bg-white px-3.5 py-1.5 text-xs font-semibold text-plum hover:bg-blush transition-colors"
             >
-              🕒 History ({versions.length})
+              <History className="h-3.5 w-3.5 text-mauve" aria-hidden="true" />
+              <span>History ({versions.length})</span>
             </button>
             <button
               type="button"

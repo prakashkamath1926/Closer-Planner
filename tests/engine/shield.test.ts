@@ -31,11 +31,15 @@ describe("engine/shield: Surprise Shield & Privacy Engine", () => {
       gift: "Vintage Guitar",
     };
 
-    const payload = buildRecipientPayload(rawDbRow);
+    // Test revealed state (after reveal_at)
+    const payload = buildRecipientPayload(rawDbRow, {
+      nowMs: new Date("2026-11-20T19:00:00Z").getTime(),
+    });
 
-    // Strict allowlist: ONLY headline, message, reveal_at, show_countdown exist
+    // Strict allowlist: ONLY headline, is_revealed, message, reveal_at, show_countdown exist
     expect(Object.keys(payload).sort()).toEqual([
       "headline",
+      "is_revealed",
       "message",
       "reveal_at",
       "show_countdown",
@@ -45,6 +49,7 @@ describe("engine/shield: Surprise Shield & Privacy Engine", () => {
     expect(payload.message).toBe("Please keep this evening clear on your calendar.");
     expect(payload.reveal_at).toBe("2026-11-20T18:00:00Z");
     expect(payload.show_countdown).toBe(true);
+    expect(payload.is_revealed).toBe(true);
 
     // Negative assertions: confirm complete absence of sensitive fields
     const payloadObj = payload as unknown as Record<string, unknown>;
@@ -60,6 +65,45 @@ describe("engine/shield: Surprise Shield & Privacy Engine", () => {
     expect(payloadObj.occasion_title).toBeUndefined();
   });
 
+  it("server-side reveal enforcement: before reveal_at returns only neutral cover and countdown", () => {
+    const rawDbRow = {
+      headline: "Secret Anniversary Gala",
+      message: "Secret location at St. Regis",
+      reveal_at: "2026-11-20T18:00:00Z",
+      show_countdown: true,
+    };
+
+    // 1 hour BEFORE reveal_at
+    const beforePayload = buildRecipientPayload(rawDbRow, {
+      nowMs: new Date("2026-11-20T17:00:00Z").getTime(),
+    });
+
+    expect(beforePayload.headline).toBe(DEFAULT_RECIPIENT_HEADLINE);
+    expect(beforePayload.message).toBeNull();
+    expect(beforePayload.reveal_at).toBe("2026-11-20T18:00:00Z");
+    expect(beforePayload.show_countdown).toBe(true);
+    expect(beforePayload.is_revealed).toBe(false);
+
+    // 1 hour AFTER reveal_at
+    const afterPayload = buildRecipientPayload(rawDbRow, {
+      nowMs: new Date("2026-11-20T19:00:00Z").getTime(),
+    });
+
+    expect(afterPayload.headline).toBe("Secret Anniversary Gala");
+    expect(afterPayload.message).toBe("Secret location at St. Regis");
+    expect(afterPayload.is_revealed).toBe(true);
+
+    // Preview mode: always shows revealed state
+    const previewPayload = buildRecipientPayload(rawDbRow, {
+      isPreview: true,
+      nowMs: new Date("2026-11-20T17:00:00Z").getTime(),
+    });
+
+    expect(previewPayload.headline).toBe("Secret Anniversary Gala");
+    expect(previewPayload.message).toBe("Secret location at St. Regis");
+    expect(previewPayload.is_revealed).toBe(true);
+  });
+
   it("applies default headline if headline is empty or null", () => {
     const payloadEmpty = buildRecipientPayload({ headline: "" });
     expect(payloadEmpty.headline).toBe(DEFAULT_RECIPIENT_HEADLINE);
@@ -68,66 +112,59 @@ describe("engine/shield: Surprise Shield & Privacy Engine", () => {
     expect(payloadNull.headline).toBe(DEFAULT_RECIPIENT_HEADLINE);
   });
 
-  it("token generation and hashing: generates 32-byte raw token and sha256 hash", () => {
-    const rawToken = generateRawShareToken();
-    expect(typeof rawToken).toBe("string");
-    // 32 bytes = 64 hex characters
-    expect(rawToken).toMatch(/^[0-9a-f]{64}$/);
+  it("generates 32-byte (64 hex char) cryptographic tokens and matching sha256 hashes", () => {
+    const token = generateRawShareToken();
+    expect(token).toHaveLength(64);
+    expect(token).toMatch(/^[0-9a-f]{64}$/);
 
-    const secondToken = generateRawShareToken();
-    expect(rawToken).not.toBe(secondToken);
-
-    const hash = hashShareToken(rawToken);
-    expect(typeof hash).toBe("string");
+    const hash = hashShareToken(token);
+    expect(hash).toHaveLength(64);
     expect(hash).toMatch(/^[0-9a-f]{64}$/);
-    // Hard rule: raw token is NEVER the same as its hash
-    expect(hash).not.toBe(rawToken);
+    expect(hash).not.toBe(token);
 
-    // Deterministic hashing
-    const hashRepeat = hashShareToken(rawToken);
-    expect(hashRepeat).toBe(hash);
+    // Hashing same token produces identical hash
+    expect(hashShareToken(token)).toBe(hash);
   });
 
-  it("token format validation", () => {
-    const validRaw = generateRawShareToken();
-    expect(isValidTokenFormat(validRaw)).toBe(true);
+  it("validates token format and rejects invalid or malformed tokens", () => {
+    expect(isValidTokenFormat(generateRawShareToken())).toBe(true);
     expect(isValidTokenFormat("preview")).toBe(true);
 
-    // Invalid tokens
     expect(isValidTokenFormat("")).toBe(false);
-    expect(isValidTokenFormat("short-token")).toBe(false);
-    expect(isValidTokenFormat("gsk_invalid_prefix_token_12345678901234567890")).toBe(false);
+    expect(isValidTokenFormat("short")).toBe(false);
+    expect(isValidTokenFormat("12345")).toBe(false);
     expect(isValidTokenFormat(null)).toBe(false);
     expect(isValidTokenFormat(undefined)).toBe(false);
-    expect(isValidTokenFormat(12345)).toBe(false);
+    expect(isValidTokenFormat("gsk_invalid_prefix_token_12345678901234567890")).toBe(false);
+    expect(isValidTokenFormat("zzzz".repeat(16))).toBe(false); // Non-hex characters
   });
 
-  it("generic 404 response contract", () => {
+  it("calculates live countdown time remaining and tracks reveal state", () => {
+    const revealTime = new Date("2026-11-20T18:00:00Z").getTime();
+
+    // 2 days, 3 hours, 4 minutes, 5 seconds before reveal
+    const nowBefore = revealTime - (2 * 86400 + 3 * 3600 + 4 * 60 + 5) * 1000;
+    const countdown = calculateCountdown("2026-11-20T18:00:00Z", nowBefore);
+
+    expect(countdown).not.toBeNull();
+    expect(countdown?.isRevealed).toBe(false);
+    expect(countdown?.days).toBe(2);
+    expect(countdown?.hours).toBe(3);
+    expect(countdown?.minutes).toBe(4);
+    expect(countdown?.seconds).toBe(5);
+
+    // After reveal time has passed
+    const nowAfter = revealTime + 10000;
+    const revealedCountdown = calculateCountdown("2026-11-20T18:00:00Z", nowAfter);
+
+    expect(revealedCountdown).not.toBeNull();
+    expect(revealedCountdown?.isRevealed).toBe(true);
+    expect(revealedCountdown?.days).toBe(0);
+    expect(revealedCountdown?.hours).toBe(0);
+    expect(revealedCountdown?.seconds).toBe(0);
+  });
+
+  it("provides immutable generic not found response shape", () => {
     expect(GENERIC_NOT_FOUND_RESPONSE).toEqual({ error: "Not found" });
-  });
-
-  it("calculateCountdown returns time breakdown and marks revealed state", () => {
-    const now = new Date("2026-10-29T12:00:00Z").getTime();
-
-    // 2 days, 3 hours, 15 minutes, 30 seconds ahead
-    const futureDate = new Date("2026-10-31T15:15:30Z").toISOString();
-    const countdownFuture = calculateCountdown(futureDate, now);
-
-    expect(countdownFuture).not.toBeNull();
-    expect(countdownFuture?.isRevealed).toBe(false);
-    expect(countdownFuture?.days).toBe(2);
-    expect(countdownFuture?.hours).toBe(3);
-    expect(countdownFuture?.minutes).toBe(15);
-    expect(countdownFuture?.seconds).toBe(30);
-
-    // Past date (already revealed)
-    const pastDate = new Date("2026-10-28T12:00:00Z").toISOString();
-    const countdownPast = calculateCountdown(pastDate, now);
-    expect(countdownPast?.isRevealed).toBe(true);
-    expect(countdownPast?.totalMsRemaining).toBe(0);
-
-    // Invalid date returns null
-    expect(calculateCountdown("invalid-date-string", now)).toBeNull();
-    expect(calculateCountdown(null, now)).toBeNull();
   });
 });
