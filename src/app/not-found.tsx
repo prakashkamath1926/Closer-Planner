@@ -1,11 +1,12 @@
 import Link from "next/link";
+import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function NotFound() {
   return (
     <div className="flex min-h-[70vh] flex-col items-center justify-center px-4 text-center">
-      <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-blush text-3xl font-serif text-rose">
-        ❦
+      <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-blush text-rose">
+        <Sparkles className="h-8 w-8" aria-hidden="true" />
       </div>
       <h1 className="mt-6 font-serif text-3xl font-bold text-plum sm:text-4xl">
         Celebration Plan Not Found

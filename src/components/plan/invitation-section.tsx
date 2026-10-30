@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { Mail, Download, Sparkles, Edit3, Image as ImageIcon, BookOpen, Send, Check } from "lucide-react";
+import { Mail, Download, Sparkles, Edit3, Image as ImageIcon, BookOpen, Send, Check, Calendar, X } from "lucide-react";
 import { toPng } from "html-to-image";
 import { generateInvitationHtml, buildMailtoDraft, PublicInvitationPayload } from "@/lib/engine/invitation";
 import { sanitizeHtml } from "@/lib/engine/sanitizer";
@@ -299,16 +299,16 @@ export function InvitationSection({ occasion }: InvitationSectionProps) {
             {headline}
           </h3>
 
-          <div className="my-4 inline-block rounded-full bg-peach/40 px-4 py-1 text-xs font-semibold text-rose">
+          <div className="my-4 inline-flex items-center gap-1.5 rounded-full bg-peach/40 px-4 py-1 text-xs font-semibold text-rose">
+            <Calendar className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             {occasion.event_at ? (
               <ClientDateTime
                 date={occasion.event_at}
                 options={{ dateStyle: "full" }}
-                prefix="📅 "
-                fallback="📅 Date to be announced"
+                fallback="Date to be announced"
               />
             ) : (
-              "📅 Date to be announced"
+              <span>Date to be announced</span>
             )}
           </div>
 
@@ -376,9 +376,10 @@ export function InvitationSection({ occasion }: InvitationSectionProps) {
               <button
                 type="button"
                 onClick={() => setIsLetterModalOpen(false)}
+                aria-label="Close"
                 className="rounded-lg p-1 text-mauve hover:bg-sand/60"
               >
-                ✕
+                <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
 

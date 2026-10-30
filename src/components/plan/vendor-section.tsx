@@ -11,6 +11,11 @@ import {
   Trash2,
   AlertCircle,
   Phone,
+  Lightbulb,
+  CheckCircle2,
+  Handshake,
+  XCircle,
+  AlertTriangle,
 } from "lucide-react";
 import { VendorRecord, VendorStatus } from "@/lib/engine/vendors";
 import { formatMoney } from "@/lib/engine/money";
@@ -29,13 +34,13 @@ interface VendorSectionProps {
 
 const STATUS_CONFIG: Record<
   VendorStatus,
-  { label: string; bg: string; text: string; icon: string }
+  { label: string; bg: string; text: string; Icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean | "true" | "false" }> }
 > = {
-  suggested: { label: "Suggested", bg: "bg-butter/40", text: "text-amber-900", icon: "💡" },
-  verified: { label: "Verified", bg: "bg-sage/40", text: "text-sageDeep", icon: "✓" },
-  contacted: { label: "Contacted", bg: "bg-lavender/40", text: "text-plum", icon: "✉️" },
-  confirmed: { label: "Confirmed", bg: "bg-emerald-100", text: "text-emerald-800", icon: "🤝" },
-  declined: { label: "Declined", bg: "bg-rose/15", text: "text-roseDeep", icon: "✕" },
+  suggested: { label: "Suggested", bg: "bg-butter/40", text: "text-amber-900", Icon: Lightbulb },
+  verified: { label: "Verified", bg: "bg-sage/40", text: "text-sageDeep", Icon: CheckCircle2 },
+  contacted: { label: "Contacted", bg: "bg-lavender/40", text: "text-plum", Icon: Mail },
+  confirmed: { label: "Confirmed", bg: "bg-emerald-100", text: "text-emerald-800", Icon: Handshake },
+  declined: { label: "Declined", bg: "bg-rose/15", text: "text-roseDeep", Icon: XCircle },
 };
 
 export function VendorSection({
@@ -285,7 +290,9 @@ export function VendorSection({
       {/* Vendor List */}
       {vendors.length === 0 ? (
         <div className="py-12 text-center">
-          <span className="text-3xl">🤝</span>
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-peach/40 text-plum">
+            <Handshake className="h-6 w-6" aria-hidden="true" />
+          </div>
           <p className="mt-2 font-serif text-base font-semibold text-plum">
             No vendors added yet
           </p>
@@ -340,9 +347,10 @@ export function VendorSection({
                               Priority #{vendor.priority}
                             </span>
                             <span
-                              className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusCfg.bg} ${statusCfg.text}`}
+                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusCfg.bg} ${statusCfg.text}`}
                             >
-                              {statusCfg.icon} {statusCfg.label}
+                              <statusCfg.Icon className="h-3 w-3 shrink-0" aria-hidden="true" />
+                              <span>{statusCfg.label}</span>
                             </span>
                           </div>
 
@@ -362,8 +370,9 @@ export function VendorSection({
                               </strong>
                             </span>
                             {hasParsedQuote && (
-                              <span className="text-amber-800 font-medium text-[11px]">
-                                (⚠️ Quoted breakdown saved)
+                              <span className="inline-flex items-center gap-1 text-amber-800 font-medium text-[11px]">
+                                <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
+                                <span>Quoted breakdown saved</span>
                               </span>
                             )}
                           </div>
@@ -399,11 +408,11 @@ export function VendorSection({
                             }
                             className="rounded-full border border-blush bg-paper px-2.5 py-1 text-xs font-semibold text-plum focus:border-rose focus:ring-1 focus:ring-rose"
                           >
-                            <option value="suggested">💡 Suggested</option>
-                            <option value="verified">✓ Verified</option>
-                            <option value="contacted">✉️ Contacted</option>
-                            <option value="confirmed">🤝 Confirmed</option>
-                            <option value="declined">✕ Declined</option>
+                            <option value="suggested">Suggested</option>
+                            <option value="verified">Verified</option>
+                            <option value="contacted">Contacted</option>
+                            <option value="confirmed">Confirmed</option>
+                            <option value="declined">Declined</option>
                           </select>
 
                           {/* Delete */}

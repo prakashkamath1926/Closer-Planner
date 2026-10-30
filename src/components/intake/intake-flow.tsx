@@ -12,6 +12,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Check } from "lucide-react";
 import { EntryPath, CelebrationIdea, IntakeRequest, UrgencyMode } from "@/lib/ai/schemas";
 import { IdeasScreen } from "./ideas-screen";
 
@@ -170,8 +171,8 @@ export function IntakeFlow() {
   if (savedOccasionId) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-16 text-center">
-        <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-sage/30 text-2xl text-sageDeep">
-          ✓
+        <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-sage/30 text-sageDeep">
+          <Check className="h-8 w-8" aria-hidden="true" />
         </div>
         <h2 className="mt-6 font-serif text-3xl font-bold text-plum">
           Celebration plan approved & saved!

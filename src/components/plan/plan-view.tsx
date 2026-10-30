@@ -14,6 +14,11 @@ import {
   ArrowRight,
   Clock,
   Coins,
+  Calendar,
+  Users,
+  Lock,
+  AlertTriangle,
+  CheckCircle2,
 } from "lucide-react";
 import { calculateBudget, type BudgetSummary } from "@/lib/engine/budget";
 import {
@@ -491,7 +496,7 @@ export function PlanView({
         {lastAppliedSummary && (
           <div className="mb-6 flex flex-col items-start justify-between gap-3 rounded-2xl border border-sage/40 bg-sage/10 p-4 sm:flex-row sm:items-center">
             <div className="flex items-center gap-2 text-xs font-medium text-sageDeep">
-              <span>✓</span>
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-sageDeep" aria-hidden="true" />
               <span>{lastAppliedSummary}</span>
             </div>
             <button
@@ -524,20 +529,28 @@ export function PlanView({
 
             <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-mauve">
               {occasion.event_at ? (
-                <ClientDateTime
-                  date={occasion.event_at}
-                  options={{
-                    dateStyle: "full",
-                    timeStyle: "short",
-                  }}
-                  prefix="📅 "
-                />
+                <span className="inline-flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5 text-mauve" aria-hidden="true" />
+                  <ClientDateTime
+                    date={occasion.event_at}
+                    options={{
+                      dateStyle: "full",
+                      timeStyle: "short",
+                    }}
+                  />
+                </span>
               ) : (
-                <span>📅 Date not set</span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5 text-mauve" aria-hidden="true" />
+                  <span>Date not set</span>
+                </span>
               )}
 
               {occasion.guest_count && (
-                <span>👥 {occasion.guest_count} guests</span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Users className="h-3.5 w-3.5 text-mauve" aria-hidden="true" />
+                  <span>{occasion.guest_count} guests</span>
+                </span>
               )}
             </div>
           </div>
@@ -628,8 +641,9 @@ export function PlanView({
                         )}
 
                         {item.is_non_negotiable && (
-                          <span className="rounded-full bg-butter/60 px-2.5 py-0.5 text-[10px] font-semibold text-plum">
-                            🔒 Non-negotiable
+                          <span className="inline-flex items-center gap-1 rounded-full bg-butter/60 px-2.5 py-0.5 text-[10px] font-semibold text-plum">
+                            <Lock className="h-3 w-3 text-plum" aria-hidden="true" />
+                            <span>Non-negotiable</span>
                           </span>
                         )}
 
@@ -655,14 +669,15 @@ export function PlanView({
                       {/* Warnings: Infeasible or Blocked */}
                       {infeasibleReason && (
                         <div className="mt-2 inline-flex items-center gap-1.5 rounded-xl bg-rose/10 px-3 py-1 text-xs font-medium text-roseDeep">
-                          <span>⚠️</span>
+                          <AlertTriangle className="h-3.5 w-3.5 text-roseDeep shrink-0" aria-hidden="true" />
                           <span>{infeasibleReason}</span>
                         </div>
                       )}
 
                       {isBlocked && (
                         <div className="mt-2 inline-flex items-center gap-1.5 rounded-xl bg-peach/40 px-3 py-1 text-xs font-medium text-plum">
-                          <span>⏳ Blocked by prerequisite tasks</span>
+                          <Clock className="h-3.5 w-3.5 text-plum shrink-0" aria-hidden="true" />
+                          <span>Blocked by prerequisite tasks</span>
                         </div>
                       )}
 

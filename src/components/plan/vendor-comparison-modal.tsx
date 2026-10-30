@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { X, AlertCircle } from "lucide-react";
+import { X, AlertCircle, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { VendorRecord, compareCategoryVendors } from "@/lib/engine/vendors";
 
 interface VendorComparisonModalProps {
@@ -102,7 +102,10 @@ export function VendorComparisonModal({
                         {v.quotedPriceFormatted}
                       </span>
                       {v.priceMinorUnits === null && (
-                        <span className="block text-[10px] text-roseDeep">⚠️ No price quoted</span>
+                        <span className="inline-flex items-center gap-1 text-[10px] text-roseDeep">
+                          <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
+                          <span>No price quoted</span>
+                        </span>
                       )}
                     </td>
                   ))}
@@ -158,7 +161,10 @@ export function VendorComparisonModal({
                       {v.hasAvailabilityClaim ? (
                         <span className="text-plum">{v.availabilityClaimText}</span>
                       ) : (
-                        <span className="text-roseDeep">⚠️ Missing statement</span>
+                        <span className="inline-flex items-center gap-1 text-roseDeep">
+                          <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
+                          <span>Missing statement</span>
+                        </span>
                       )}
                     </td>
                   ))}
@@ -174,7 +180,10 @@ export function VendorComparisonModal({
                       {v.hasCancellationTerms ? (
                         <span className="text-plum">{v.cancellationTermsText}</span>
                       ) : (
-                        <span className="text-roseDeep font-semibold">⚠️ Terms missing</span>
+                        <span className="inline-flex items-center gap-1 text-roseDeep font-semibold">
+                          <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
+                          <span>Terms missing</span>
+                        </span>
                       )}
                     </td>
                   ))}
@@ -192,15 +201,17 @@ export function VendorComparisonModal({
                           {v.missingFields.map((m, idx) => (
                             <span
                               key={idx}
-                              className="rounded-full bg-rose/10 px-2 py-0.5 text-[10px] font-semibold text-roseDeep"
+                              className="inline-flex items-center gap-1 rounded-full bg-rose/10 px-2 py-0.5 text-[10px] font-semibold text-roseDeep"
                             >
-                              ⚠️ {m}
+                              <AlertTriangle className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
+                              <span>{m}</span>
                             </span>
                           ))}
                         </div>
                       ) : (
-                        <span className="text-sageDeep font-medium text-[11px]">
-                          ✓ Comprehensive quote
+                        <span className="inline-flex items-center gap-1 text-sageDeep font-medium text-[11px]">
+                          <CheckCircle2 className="h-3 w-3 shrink-0" aria-hidden="true" />
+                          <span>Comprehensive quote</span>
                         </span>
                       )}
                     </td>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Sparkles, PartyPopper } from "lucide-react";
 import { calculateCountdown, CountdownState } from "@/lib/engine/shield";
 
 interface RecipientCountdownProps {
@@ -25,7 +26,11 @@ export function RecipientCountdown({ revealAt }: RecipientCountdownProps) {
   if (countdown.isRevealed) {
     return (
       <div className="mt-8 rounded-3xl border border-gold/40 bg-butter/30 px-6 py-4 text-center shadow-xs">
-        <span className="text-2xl">✨ 🎉 ✨</span>
+        <div className="flex items-center justify-center gap-2 text-rose">
+          <Sparkles className="h-6 w-6" aria-hidden="true" />
+          <PartyPopper className="h-7 w-7" aria-hidden="true" />
+          <Sparkles className="h-6 w-6" aria-hidden="true" />
+        </div>
         <h4 className="mt-1 font-serif text-lg font-semibold text-plum">
           The moment has arrived!
         </h4>
@@ -38,9 +43,9 @@ export function RecipientCountdown({ revealAt }: RecipientCountdownProps) {
     <div className="mt-8 rounded-3xl border border-blush bg-white/80 p-6 shadow-sm backdrop-blur-xs">
       <div className="text-center">
         <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-widest text-gold uppercase">
-          <span>✨</span>
+          <Sparkles className="h-3.5 w-3.5 text-gold shrink-0" aria-hidden="true" />
           <span>Countdown to the Big Reveal</span>
-          <span>✨</span>
+          <Sparkles className="h-3.5 w-3.5 text-gold shrink-0" aria-hidden="true" />
         </span>
       </div>
 

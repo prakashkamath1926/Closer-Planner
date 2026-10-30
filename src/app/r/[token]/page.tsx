@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import { Lock, Sparkles } from "lucide-react";
 import { RecipientCountdown } from "@/components/recipient/recipient-countdown";
 
 interface RecipientData {
@@ -142,8 +143,9 @@ function RecipientContent({ params }: PageProps) {
     <div className="relative flex min-h-screen flex-col items-center justify-center bg-blush px-4 py-12 sm:px-6">
       {/* Organizer Preview Banner */}
       {isPreview && (
-        <div className="fixed top-0 left-0 right-0 z-50 border-b border-rose/20 bg-rose px-4 py-2 text-center text-xs font-medium text-white shadow-xs">
-          🔒 Organizer Preview Mode — Only you see this draft view before sharing
+        <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center gap-1.5 border-b border-rose/20 bg-rose px-4 py-2 text-center text-xs font-medium text-white shadow-xs">
+          <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span>Organizer Preview Mode — Only you see this draft view before sharing</span>
         </div>
       )}
 
@@ -166,9 +168,7 @@ function RecipientContent({ params }: PageProps) {
         {/* Botanical Seal Header */}
         <div className="relative text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-blush bg-blush/60 text-rose shadow-xs">
-            <span className="text-2xl" role="img" aria-label="Celebration sparkle">
-              🌸
-            </span>
+            <Sparkles className="h-6 w-6 text-rose" aria-hidden="true" />
           </div>
 
           <span className="inline-block text-xs font-semibold tracking-widest text-mauve uppercase">
@@ -199,9 +199,9 @@ function RecipientContent({ params }: PageProps) {
         {/* Footer */}
         <footer className="mt-12 text-center">
           <div className="flex items-center justify-center gap-2 text-xs text-mauve">
-            <span>✨</span>
+            <Sparkles className="h-3.5 w-3.5 text-rose/70" aria-hidden="true" />
             <span>Crafted with love</span>
-            <span>✨</span>
+            <Sparkles className="h-3.5 w-3.5 text-rose/70" aria-hidden="true" />
           </div>
         </footer>
       </main>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { X } from "lucide-react";
 import { ClientDateTime } from "@/components/client-date-time";
 
 export interface VersionItem {
@@ -82,9 +83,10 @@ export function VersionDrawer({
             <button
               type="button"
               onClick={onClose}
+              aria-label="Close"
               className="rounded-full p-2 text-mauve hover:bg-blush hover:text-plum transition-colors"
             >
-              ✕
+              <X className="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
 

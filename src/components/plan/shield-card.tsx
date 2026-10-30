@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import Link from "next/link";
-import { Eye, Key } from "lucide-react";
+import { Eye, Key, CheckCircle2 } from "lucide-react";
 import { ClientDateTime } from "@/components/client-date-time";
 
 interface ShareLinkItem {
@@ -378,7 +378,10 @@ export function ShieldCard({ occasionId, eventAt, onPublishedChange }: ShieldCar
           <div className="mt-6 flex items-center justify-between border-t border-blush pt-4">
             <span className="text-xs text-mauve">
               {saveSuccess ? (
-                <span className="font-semibold text-sageDeep">✓ Settings saved successfully!</span>
+                <span className="inline-flex items-center gap-1 font-semibold text-sageDeep">
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  <span>Settings saved successfully!</span>
+                </span>
               ) : (
                 "Remember to publish when you are ready to share."
               )}

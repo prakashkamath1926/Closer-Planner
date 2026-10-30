@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Sparkles, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { X, Sparkles, AlertTriangle, CheckCircle2, ShieldCheck, Info } from "lucide-react";
 import { ParsedQuoteFields } from "@/lib/engine/vendors";
 import { formatMoney } from "@/lib/engine/money";
 
@@ -135,8 +135,9 @@ export function QuoteParseModal({
           />
 
           <div className="mt-3 flex items-center justify-between">
-            <span className="text-[11px] text-mauve">
-              🛡️ Safe: Prompt injection defense active. Quoted text cannot execute commands.
+            <span className="inline-flex items-center gap-1.5 text-[11px] text-mauve">
+              <ShieldCheck className="h-3.5 w-3.5 text-sageDeep shrink-0" aria-hidden="true" />
+              <span>Safe: Prompt injection defense active. Quoted text cannot execute commands.</span>
             </span>
             <button
               type="submit"
@@ -150,14 +151,16 @@ export function QuoteParseModal({
         </form>
 
         {errorMsg && (
-          <div className="mt-4 rounded-xl border border-rose/30 bg-rose/10 p-3 text-xs text-roseDeep">
-            ⚠️ {errorMsg}
+          <div className="mt-4 flex items-center gap-1.5 rounded-xl border border-rose/30 bg-rose/10 p-3 text-xs text-roseDeep">
+            <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>{errorMsg}</span>
           </div>
         )}
 
         {sourceNotice && (
-          <div className="mt-3 rounded-xl border border-butter bg-butter/30 p-2.5 text-xs text-plum">
-            ℹ️ {sourceNotice}
+          <div className="mt-3 flex items-center gap-1.5 rounded-xl border border-butter bg-butter/30 p-2.5 text-xs text-plum">
+            <Info className="h-4 w-4 shrink-0 text-plum" aria-hidden="true" />
+            <span>{sourceNotice}</span>
           </div>
         )}
 
@@ -166,7 +169,7 @@ export function QuoteParseModal({
           <div className="mt-6 border-t border-blush pt-5">
             <div className="flex items-center justify-between">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-butter/40 px-3 py-1 text-xs font-bold text-plum">
-                <span>⚠️</span>
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 <span>QUOTED (Unverified Claims)</span>
               </span>
               <span className="text-xs text-mauve">Organizer confirmation required</span>
@@ -184,8 +187,9 @@ export function QuoteParseModal({
                     : "Not quoted / Unspecified"}
                 </p>
                 {parsedResult.price === null && (
-                  <span className="mt-1 inline-block text-[10px] text-roseDeep font-semibold">
-                    ⚠️ Missing price figure
+                  <span className="mt-1 inline-flex items-center gap-1 text-[10px] text-roseDeep font-semibold">
+                    <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
+                    <span>Missing price figure</span>
                   </span>
                 )}
               </div>
@@ -273,9 +277,10 @@ export function QuoteParseModal({
                     {parsedResult.missing.map((m, idx) => (
                       <span
                         key={idx}
-                        className="rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-roseDeep shadow-2xs border border-rose/20"
+                        className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-roseDeep shadow-2xs border border-rose/20"
                       >
-                        ⚠️ {m}
+                        <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
+                        <span>{m}</span>
                       </span>
                     ))}
                   </div>

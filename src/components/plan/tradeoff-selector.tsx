@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { X, AlertTriangle } from "lucide-react";
 import type { ProposeTradeoffsResponse } from "@/lib/ai/schemas";
 
 interface TradeoffSelectorProps {
@@ -84,18 +85,20 @@ export function TradeoffSelector({
           <button
             type="button"
             onClick={onClose}
+            aria-label="Close"
             className="rounded-full p-2 text-mauve hover:bg-blush hover:text-plum transition-colors"
           >
-            ✕
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 
         {tradeoffs.source === "fallback" && (
           <div
             role="status"
-            className="mt-4 rounded-2xl border border-blush bg-blush/80 p-3 text-center text-xs font-semibold text-roseDeep shadow-xs"
+            className="mt-4 flex items-center justify-center gap-2 rounded-2xl border border-blush bg-blush/80 p-3 text-center text-xs font-semibold text-roseDeep shadow-xs"
           >
-            ⚠️ AI is unavailable, showing starter templates
+            <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>AI is unavailable, showing starter templates</span>
           </div>
         )}
 

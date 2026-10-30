@@ -11,6 +11,7 @@
  */
 
 import { useState } from "react";
+import { AlertTriangle, Edit2 } from "lucide-react";
 import { CelebrationIdea, EntryPath } from "@/lib/ai/schemas";
 import { formatMoney, toMinorUnits } from "@/lib/engine/money";
 
@@ -67,7 +68,7 @@ export function IdeasScreen({
             role="status"
             className="mb-4 inline-flex items-center gap-2 rounded-full border border-blush bg-blush/80 px-4 py-1.5 text-xs font-semibold text-roseDeep shadow-xs"
           >
-            <span>⚠️</span>
+            <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span>AI is unavailable, showing starter templates</span>
           </div>
         )}
@@ -201,10 +202,10 @@ export function IdeasScreen({
                             e.stopPropagation();
                             setEditingIdeaId(idea.id);
                           }}
-                          className="text-xs text-mauve hover:text-plum"
-                          title="Edit title"
+                          className="rounded-full p-1 text-mauve hover:text-plum transition-colors"
+                          aria-label="Edit title"
                         >
-                          ✎
+                          <Edit2 className="h-3 w-3" aria-hidden="true" />
                         </button>
                       </div>
                     )}

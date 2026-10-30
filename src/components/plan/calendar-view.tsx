@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useSyncExternalStore } from "react";
-import { Clock, Download, ListOrdered, CalendarDays, ShieldAlert, CheckCircle2, AlertCircle, AlertTriangle } from "lucide-react";
+import { Clock, Download, ListOrdered, CalendarDays, ShieldAlert, CheckCircle2, AlertCircle, AlertTriangle, Calendar, Star } from "lucide-react";
 import { calculateEventCountdown } from "@/lib/engine/countdown";
 import { generateOccasionIcs } from "@/lib/engine/ics";
 import { generateTonightRunSheet, RunSheetSlot } from "@/lib/engine/run-sheet";
@@ -362,11 +362,11 @@ export function CalendarView({ occasion, items }: CalendarViewProps) {
                   Main Event
                 </span>
                 <h4 className="mt-1 font-serif text-base font-bold text-plum">{occasion.title}</h4>
-                <p className="text-xs text-mauve">
+                <p className="inline-flex items-center gap-1 text-xs text-mauve">
+                  <Calendar className="h-3.5 w-3.5 text-mauve shrink-0" aria-hidden="true" />
                   <ClientDateTime
                     date={occasion.event_at}
                     options={{ dateStyle: "full", timeStyle: "short" }}
-                    prefix="📅 "
                   />
                 </p>
               </div>
@@ -500,7 +500,10 @@ export function CalendarView({ occasion, items }: CalendarViewProps) {
                 <div className="flex items-center justify-between">
                   <span className="font-mono text-[11px] font-semibold">{day.dateNumber}</span>
                   {day.isEventDay && (
-                    <span className="rounded-full bg-rose px-1 py-0.2 text-[9px] text-white">★ EVENT</span>
+                    <span className="inline-flex items-center gap-0.5 rounded-full bg-rose px-1 py-0.2 text-[9px] text-white">
+                      <Star className="h-2.5 w-2.5 fill-white text-white" aria-hidden="true" />
+                      EVENT
+                    </span>
                   )}
                 </div>
 
@@ -540,8 +543,9 @@ export function CalendarView({ occasion, items }: CalendarViewProps) {
                     </span>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-semibold text-plum">
-                          ⏱️ {slot.timeRangeDisplay}
+                        <span className="inline-flex items-center gap-1 font-mono text-xs font-semibold text-plum">
+                          <Clock className="h-3 w-3 text-plum shrink-0" aria-hidden="true" />
+                          <span>{slot.timeRangeDisplay}</span>
                         </span>
                         <span className="text-[11px] text-mauve">({slot.durationMinutes}m)</span>
                       </div>
