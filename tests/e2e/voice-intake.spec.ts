@@ -7,8 +7,8 @@ test.describe("Voice Intake & Speech Recognition Feature", () => {
   }) => {
     // Simulate browser without SpeechRecognition API (e.g. Firefox)
     await page.addInitScript(() => {
-      delete (window as any).SpeechRecognition;
-      delete (window as any).webkitSpeechRecognition;
+      delete (window as unknown as Record<string, unknown>).SpeechRecognition;
+      delete (window as unknown as Record<string, unknown>).webkitSpeechRecognition;
     });
 
     await page.goto("/", { waitUntil: "domcontentloaded" });
@@ -35,8 +35,8 @@ test.describe("Voice Intake & Speech Recognition Feature", () => {
         interimResults = false;
         lang = "en-US";
         onstart: (() => void) | null = null;
-        onresult: ((e: any) => void) | null = null;
-        onerror: ((e: any) => void) | null = null;
+        onresult: ((e: unknown) => void) | null = null;
+        onerror: ((e: unknown) => void) | null = null;
         onend: (() => void) | null = null;
 
         start() {
@@ -55,7 +55,7 @@ test.describe("Voice Intake & Speech Recognition Feature", () => {
           }, 30);
         }
       }
-      (window as any).SpeechRecognition = MockSpeech;
+      (window as unknown as Record<string, unknown>).SpeechRecognition = MockSpeech;
     });
 
     await page.goto("/", { waitUntil: "domcontentloaded" });
