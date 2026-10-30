@@ -1,8 +1,20 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
-import { History } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import {
+  History,
+  ClipboardList,
+  Store,
+  CalendarDays,
+  Shield,
+  HeartHandshake,
+  Mail,
+  ArrowRight,
+  Clock,
+  Coins,
+} from "lucide-react";
 import { calculateBudget, type BudgetSummary } from "@/lib/engine/budget";
 import {
   categorizeTaskReadiness,
@@ -10,6 +22,8 @@ import {
   calculateUrgencyMode,
   type TimelineItem,
 } from "@/lib/engine/timeline";
+import { calculateEventCountdown } from "@/lib/engine/countdown";
+import { computeNextStep, type PlannerTab } from "@/lib/engine/next-step";
 import { BudgetBar } from "./budget-bar";
 import { ChangeModal } from "./change-modal";
 import { TradeoffSelector } from "./tradeoff-selector";
@@ -60,11 +74,86 @@ interface PlanViewProps {
   initialVersions: VersionItem[];
 }
 
+const PLANNER_TABS: Array<{
+  id: PlannerTab;
+  label: string;
+  icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean | "true" | "false" }>;
+}> = [
+  { id: "plan", label: "Plan", icon: ClipboardList },
+  { id: "vendors", label: "Vendors", icon: Store },
+  { id: "timeline", label: "Timeline", icon: CalendarDays },
+  { id: "surprise", label: "Surprise", icon: Shield },
+  { id: "blend", label: "Our Blend", icon: HeartHandshake },
+  { id: "invitation", label: "Invitation", icon: Mail },
+];
+
 export function PlanView({
   initialOccasion,
   initialItems,
   initialVersions,
 }: PlanViewProps) {
+  const searchParams = useSearchParams();
+
+  const currentTabParam = searchParams?.get("tab") as PlannerTab | null;
+  const validatedUrlTab =
+    currentTabParam && PLANNER_TABS.some((t) => t.id === currentTabParam)
+      ? currentTabParam
+      : null;
+
+  const [localTab, setLocalTab] = useState<PlannerTab>("plan");
+  const activeTab = validatedUrlTab || localTab;
+
+  const [vendorsCount, setVendorsCount] = useState<number>(0);
+  const [isPublished, setIsPublished] = useState<boolean>(false);
+
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const url = new URL(window.location.href);
+      const tab = url.searchParams.get("tab") as PlannerTab | null;
+      if (tab && PLANNER_TABS.some((t) => t.id === tab)) {
+        setLocalTab(tab);
+      } else {
+        setLocalTab("plan");
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  const handleSelectTab = (tab: PlannerTab) => {
+    setLocalTab(tab);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", tab);
+      window.history.pushState(null, "", url.toString());
+    }
+  };
+
+  const handleTabKeyDown = (e: React.KeyboardEvent, index: number) => {
+    let nextIndex = index;
+    if (e.key === "ArrowRight") {
+      e.preventDefault();
+      nextIndex = (index + 1) % PLANNER_TABS.length;
+    } else if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      nextIndex = (index - 1 + PLANNER_TABS.length) % PLANNER_TABS.length;
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      nextIndex = 0;
+    } else if (e.key === "End") {
+      e.preventDefault();
+      nextIndex = PLANNER_TABS.length - 1;
+    }
+
+    if (nextIndex !== index) {
+      const nextTab = PLANNER_TABS[nextIndex].id;
+      handleSelectTab(nextTab);
+      tabRefs.current[nextIndex]?.focus();
+    }
+  };
+
   const [occasion] = useState<OccasionRecord>(initialOccasion);
   const [items, setItems] = useState<PlanItemRecord[]>(initialItems);
   const [versions] = useState<VersionItem[]>(initialVersions);
@@ -102,6 +191,21 @@ export function PlanView({
   const readiness = useMemo(() => {
     return categorizeTaskReadiness(timelineItems);
   }, [timelineItems]);
+
+  const countdown = useMemo(() => {
+    return calculateEventCountdown(occasion.event_at);
+  }, [occasion.event_at]);
+
+  const nextStep = useMemo(() => {
+    return computeNextStep({
+      occasion,
+      items,
+      blockedCount: readiness.blocked.length,
+      vendorsCount,
+      isPublished,
+      budgetSummary,
+    });
+  }, [occasion, items, readiness.blocked.length, vendorsCount, isPublished, budgetSummary]);
 
   const infeasibleFlags = useMemo(() => {
     return detectInfeasibleDeadlines(timelineItems, occasion.event_at);
@@ -230,42 +334,156 @@ export function PlanView({
 
   return (
     <div className="min-h-screen bg-paper pb-24">
-      {/* Top Navigation Strip */}
-      <header className="sticky top-0 z-20 border-b border-blush bg-paper/90 backdrop-blur-md">
+      {/* Top Header */}
+      <header className="border-b border-blush bg-paper">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3">
             <Link
               href="/"
-              className="text-xs font-semibold text-mauve hover:text-plum transition-colors"
+              className="text-xs sm:text-sm font-semibold text-mauve hover:text-plum transition-colors"
             >
               &larr; Celebration Companion
             </Link>
             <span className="text-mauve/40">/</span>
-            <span className="text-xs font-medium text-plum truncate max-w-[200px]">
+            <span className="text-xs sm:text-sm font-medium text-plum truncate max-w-[200px]">
               {occasion.title}
             </span>
           </div>
 
           <div className="flex items-center gap-2">
+            <span className="inline-flex items-center rounded-full bg-peach/40 px-2.5 py-0.5 text-xs font-medium text-plum capitalize">
+              {currentUrgency.replace("_", " ")}
+            </span>
+          </div>
+        </div>
+      </header>
+
+      {/* Sticky Summary Strip */}
+      <section
+        data-testid="planner-summary-strip"
+        aria-label="Occasion summary and quick actions"
+        className="sticky top-0 z-30 border-b border-blush bg-paper/95 backdrop-blur-md shadow-xs transition-shadow"
+      >
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
+          {/* Left: Quick stats (Budget Remaining + Date / Live Countdown) */}
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm">
+            {/* Budget Remaining */}
+            <div className="flex items-center gap-1.5 font-medium">
+              <Coins className="h-4 w-4 text-rose" aria-hidden="true" />
+              <span className="text-mauve">Budget:</span>
+              <span
+                className={`font-semibold ${
+                  budgetSummary.isOverBudget ? "text-rose font-bold" : "text-plum"
+                }`}
+              >
+                {budgetSummary.isOverBudget
+                  ? `Over budget (${budgetSummary.overBudgetAmountFormatted || "Exceeded"})`
+                  : `${budgetSummary.remainingBudgetFormatted} remaining`}
+              </span>
+            </div>
+
+            <span className="hidden text-mauve/30 sm:inline" aria-hidden="true">•</span>
+
+            {/* Event Date & Live Countdown */}
+            <div className="flex items-center gap-1.5 font-medium text-mauve">
+              <Clock className="h-4 w-4 text-mauve" aria-hidden="true" />
+              {occasion.event_at ? (
+                <>
+                  <ClientDateTime
+                    date={occasion.event_at}
+                    options={{ month: "short", day: "numeric" }}
+                  />
+                  <span
+                    className="rounded-full bg-sand px-2 py-0.5 text-xs font-semibold text-plum"
+                    suppressHydrationWarning
+                  >
+                    {countdown.isPast
+                      ? "Arrived"
+                      : countdown.isToday
+                      ? "Tonight!"
+                      : `${countdown.days}d ${countdown.hours}h left`}
+                  </span>
+                </>
+              ) : (
+                <span>Date not set</span>
+              )}
+            </div>
+          </div>
+
+          {/* Right: Primary Next Step + Global Action Controls */}
+          <div className="flex items-center gap-2">
+            {/* Primary Next Step Button */}
+            <button
+              type="button"
+              onClick={() => handleSelectTab(nextStep.tab)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-rose px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-white shadow-xs hover:bg-roseDeep focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-rose transition-colors"
+              title={nextStep.reason}
+            >
+              <span>{nextStep.label}</span>
+              <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+
+            {/* Version History Button */}
             <button
               type="button"
               onClick={() => setIsVersionDrawerOpen(true)}
-              aria-label="View plan version history"
-              className="inline-flex items-center gap-1.5 rounded-full border border-mauve/20 bg-white px-3.5 py-1.5 text-xs font-semibold text-plum hover:bg-blush transition-colors"
+              aria-label={`View plan version history (${versions.length} versions)`}
+              className="inline-flex items-center gap-1.5 rounded-full border border-mauve/20 bg-white px-3 py-1.5 text-xs sm:text-sm font-semibold text-plum hover:bg-blush focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-rose transition-colors"
             >
               <History className="h-3.5 w-3.5 text-mauve" aria-hidden="true" />
-              <span>History ({versions.length})</span>
+              <span className="hidden sm:inline">History ({versions.length})</span>
             </button>
+
+            {/* Adjust Plan Button */}
             <button
               type="button"
               onClick={() => setIsChangeModalOpen(true)}
-              className="rounded-full bg-rose px-4 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-roseDeep transition-colors"
+              className="rounded-full border border-rose/30 bg-white px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-rose hover:bg-blush focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-rose transition-colors"
             >
               Adjust Plan
             </button>
           </div>
         </div>
-      </header>
+
+        {/* Tab Navigation Strip */}
+        <div className="border-t border-blush/60 bg-paper/60 px-4 sm:px-6">
+          <div className="mx-auto max-w-6xl overflow-x-auto py-1.5 scrollbar-none">
+            <div
+              role="tablist"
+              aria-label="Celebration Planner Sections"
+              className="flex items-center gap-1 sm:gap-2"
+            >
+              {PLANNER_TABS.map((tab, idx) => {
+                const Icon = tab.icon;
+                const isSelected = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    ref={(el) => {
+                      tabRefs.current[idx] = el;
+                    }}
+                    role="tab"
+                    id={`tab-${tab.id}`}
+                    aria-selected={isSelected}
+                    aria-controls={`panel-${tab.id}`}
+                    tabIndex={isSelected ? 0 : -1}
+                    onClick={() => handleSelectTab(tab.id)}
+                    onKeyDown={(e) => handleTabKeyDown(e, idx)}
+                    className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs sm:text-sm font-semibold transition-all whitespace-nowrap focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-rose ${
+                      isSelected
+                        ? "bg-white text-plum shadow-xs border border-blush/80"
+                        : "text-mauve hover:text-plum hover:bg-sand/40"
+                    }`}
+                  >
+                    <Icon className={`h-4 w-4 ${isSelected ? "text-rose" : "text-mauve"}`} aria-hidden="true" />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Main Container */}
       <main className="mx-auto max-w-6xl px-4 pt-6 sm:px-6">
@@ -325,44 +543,22 @@ export function PlanView({
           </div>
         </div>
 
-        {/* Budget Bar */}
-        <div className="mb-8">
-          <BudgetBar
-            summary={budgetSummary}
-            onOpenChangeModal={() => setIsChangeModalOpen(true)}
-          />
-        </div>
-
-        {/* Surprise Shield & Recipient Share */}
-        <div className="mb-8">
-          <ShieldCard occasionId={occasion.id} eventAt={occasion.event_at} />
-        </div>
-
-        {/* Vendor Checklist & Quote Comparison */}
-        <div className="mb-8">
-          <VendorSection
-            occasionId={occasion.id}
-            occasionTitle={occasion.title}
-            eventDate={occasion.event_at}
-            guestCount={occasion.guest_count}
-            currency={occasion.currency || "INR"}
-          />
-        </div>
-
-        {/* Timeline, Countdown & Calendar */}
-        <div className="mb-8">
-          <CalendarView occasion={occasion} items={items} />
-        </div>
-
-        {/* Invitation Mini-Site & Letter Deliverables */}
-        <div className="mb-8">
-          <InvitationSection occasion={occasion} />
-        </div>
-
-        {/* Our Blend: Pre-Event Vibe Match */}
-        <div className="mb-8">
-          <BlendScreen occasion={occasion} />
-        </div>
+        {/* TAB 1: Plan */}
+        <div
+          role="tabpanel"
+          id="panel-plan"
+          aria-labelledby="tab-plan"
+          tabIndex={0}
+          hidden={activeTab !== "plan"}
+          className={activeTab === "plan" ? "block space-y-8" : "hidden"}
+        >
+          {/* Budget Bar - Dominant visual weight on Plan tab */}
+          <div>
+            <BudgetBar
+              summary={budgetSummary}
+              onOpenChangeModal={() => setIsChangeModalOpen(true)}
+            />
+          </div>
 
         {/* Plan Items Section Header & Filters */}
         <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
@@ -563,6 +759,78 @@ export function PlanView({
               );
             })
           )}
+            </div>
+        </div>
+
+        {/* TAB 2: Vendors */}
+        <div
+          role="tabpanel"
+          id="panel-vendors"
+          aria-labelledby="tab-vendors"
+          tabIndex={0}
+          hidden={activeTab !== "vendors"}
+          className={activeTab === "vendors" ? "block" : "hidden"}
+        >
+          <VendorSection
+            occasionId={occasion.id}
+            occasionTitle={occasion.title}
+            eventDate={occasion.event_at}
+            guestCount={occasion.guest_count}
+            currency={occasion.currency || "INR"}
+            onVendorsCountChange={setVendorsCount}
+          />
+        </div>
+
+        {/* TAB 3: Timeline */}
+        <div
+          role="tabpanel"
+          id="panel-timeline"
+          aria-labelledby="tab-timeline"
+          tabIndex={0}
+          hidden={activeTab !== "timeline"}
+          className={activeTab === "timeline" ? "block" : "hidden"}
+        >
+          <CalendarView occasion={occasion} items={items} />
+        </div>
+
+        {/* TAB 4: Surprise */}
+        <div
+          role="tabpanel"
+          id="panel-surprise"
+          aria-labelledby="tab-surprise"
+          tabIndex={0}
+          hidden={activeTab !== "surprise"}
+          className={activeTab === "surprise" ? "block" : "hidden"}
+        >
+          <ShieldCard
+            occasionId={occasion.id}
+            eventAt={occasion.event_at}
+            onPublishedChange={setIsPublished}
+          />
+        </div>
+
+        {/* TAB 5: Our Blend */}
+        <div
+          role="tabpanel"
+          id="panel-blend"
+          aria-labelledby="tab-blend"
+          tabIndex={0}
+          hidden={activeTab !== "blend"}
+          className={activeTab === "blend" ? "block" : "hidden"}
+        >
+          <BlendScreen occasion={occasion} />
+        </div>
+
+        {/* TAB 6: Invitation */}
+        <div
+          role="tabpanel"
+          id="panel-invitation"
+          aria-labelledby="tab-invitation"
+          tabIndex={0}
+          hidden={activeTab !== "invitation"}
+          className={activeTab === "invitation" ? "block" : "hidden"}
+        >
+          <InvitationSection occasion={occasion} />
         </div>
       </main>
 

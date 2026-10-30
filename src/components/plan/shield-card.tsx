@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { Eye, Key } from "lucide-react";
 import { ClientDateTime } from "@/components/client-date-time";
@@ -16,9 +16,10 @@ interface ShareLinkItem {
 interface ShieldCardProps {
   occasionId: string;
   eventAt?: string | null;
+  onPublishedChange?: (published: boolean) => void;
 }
 
-export function ShieldCard({ occasionId, eventAt }: ShieldCardProps) {
+export function ShieldCard({ occasionId, eventAt, onPublishedChange }: ShieldCardProps) {
   const [headline, setHeadline] = useState("Something special is being prepared");
   const [message, setMessage] = useState("");
   const [revealAt, setRevealAt] = useState("");
@@ -28,6 +29,11 @@ export function ShieldCard({ occasionId, eventAt }: ShieldCardProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  const onPublishedChangeRef = useRef(onPublishedChange);
+  useEffect(() => {
+    onPublishedChangeRef.current = onPublishedChange;
+  });
 
   const [shareLinks, setShareLinks] = useState<ShareLinkItem[]>([]);
   const [generatingLink, setGeneratingLink] = useState(false);
@@ -70,7 +76,9 @@ export function ShieldCard({ occasionId, eventAt }: ShieldCardProps) {
               }
             }
             setShowCountdown(viewData.recipientView.show_countdown ?? true);
-            setPublished(viewData.recipientView.published ?? false);
+            const isPub = viewData.recipientView.published ?? false;
+            setPublished(isPub);
+            onPublishedChangeRef.current?.(isPub);
           }
         }
 
@@ -122,6 +130,7 @@ export function ShieldCard({ occasionId, eventAt }: ShieldCardProps) {
       }
 
       setSaveSuccess(true);
+      onPublishedChange?.(published);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
       console.error(err);

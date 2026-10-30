@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import {
   Users,
   Plus,
@@ -24,6 +24,7 @@ interface VendorSectionProps {
   eventDate?: string | null;
   guestCount?: number | null;
   currency: string;
+  onVendorsCountChange?: (count: number) => void;
 }
 
 const STATUS_CONFIG: Record<
@@ -43,10 +44,16 @@ export function VendorSection({
   eventDate,
   guestCount,
   currency,
+  onVendorsCountChange,
 }: VendorSectionProps) {
   const [vendors, setVendors] = useState<VendorRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  const onVendorsCountChangeRef = useRef(onVendorsCountChange);
+  useEffect(() => {
+    onVendorsCountChangeRef.current = onVendorsCountChange;
+  });
 
   // Fallback notification state when a vendor is marked declined
   const [declinedNotice, setDeclinedNotice] = useState<{
@@ -79,7 +86,10 @@ export function VendorSection({
         const res = await fetch(`/api/vendors?occasionId=${occasionId}`);
         if (res.ok) {
           const data = await res.json();
-          if (isMounted) setVendors(data.vendors || []);
+          if (isMounted) {
+            setVendors(data.vendors || []);
+            onVendorsCountChangeRef.current?.(data.vendors?.length || 0);
+          }
         }
       } catch (err) {
         console.error("Failed to load vendors:", err);
