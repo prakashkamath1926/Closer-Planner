@@ -14,7 +14,7 @@ test.describe("Planner Layout, Sticky Summary Strip & Keyboard Tabs", () => {
 
   test.beforeEach(async ({ page }) => {
     occasionId = getOccasionId();
-    await page.goto(`/plan/${occasionId}`);
+    await page.goto(`/plan/${occasionId}`, { waitUntil: "domcontentloaded" });
     await page.waitForSelector('[role="tablist"]', { timeout: 15000 });
   });
 
@@ -78,7 +78,7 @@ test.describe("Planner Layout, Sticky Summary Strip & Keyboard Tabs", () => {
     await expect(page).toHaveURL(/tab=vendors/);
     await expect(page.locator('#panel-vendors')).toBeVisible();
 
-    await page.goto(`/plan/${occasionId}?tab=timeline`);
+    await page.goto(`/plan/${occasionId}?tab=timeline`, { waitUntil: "domcontentloaded" });
     await expect(page.locator('#tab-timeline')).toHaveAttribute("aria-selected", "true");
     await expect(page.locator('#panel-timeline')).toBeVisible();
   });
