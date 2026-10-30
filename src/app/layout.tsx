@@ -28,13 +28,19 @@ const caveat = localFont({
   display: "swap",
 });
 
+import { APP_NAME, TAGLINE } from "@/lib/brand";
+
 export const metadata: Metadata = {
   title: {
-    default: "Celebration Companion",
-    template: "%s | Celebration Companion",
+    default: `${APP_NAME} — ${TAGLINE}`,
+    template: `%s | ${APP_NAME}`,
   },
-  description:
-    "A thoughtful companion that helps you plan a personal celebration, adapt when things change, and keep every decision in your hands.",
+  description: TAGLINE,
+  openGraph: {
+    title: `${APP_NAME} — ${TAGLINE}`,
+    description: TAGLINE,
+    siteName: APP_NAME,
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

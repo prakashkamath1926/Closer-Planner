@@ -1,6 +1,6 @@
-# Celebration Companion
+# Closer
 
-A thoughtful companion that helps you plan a personal celebration, adapt when things change, and keep every decision in your hands. Built for PromptWars Virtual, Challenge 5.
+Plan something that brings you closer. A thoughtful celebration companion that helps you plan personal celebrations, adapt when things change, and keep every decision in your hands. Built for PromptWars Virtual, Challenge 5.
 
 Project documents: [`prd.md`](prd.md) · [`design.md`](design.md) · [`architecture.md`](architecture.md) · [`rules.md`](rules.md) · [`task_today.md`](task_today.md) · [`PROMPT_LOG.md`](PROMPT_LOG.md)
 

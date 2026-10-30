@@ -1,5 +1,5 @@
 /**
- * Generated-style database types for Celebration Companion.
+ * Generated-style database types for Closer.
  *
  * These types were derived by hand from schema.sql because live Supabase
  * credentials are required to run `supabase gen types typescript`.

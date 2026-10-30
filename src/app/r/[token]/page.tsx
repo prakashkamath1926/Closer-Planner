@@ -125,7 +125,7 @@ function RecipientContent({ params }: PageProps) {
           </p>
 
           <div className="mt-8 border-t border-white/10 pt-6">
-            <p className="text-xs text-mauve">Celebration Companion</p>
+            <p className="text-xs text-mauve">A quiet celebration is in motion.</p>
           </div>
         </div>
       </div>

@@ -49,7 +49,7 @@ export interface LetterHelperPromptInput {
   intentSummary?: string;
 }
 
-export const LETTER_HELPER_SYSTEM_PROMPT = `You are Celebration Companion's Letter Assistant.
+export const LETTER_HELPER_SYSTEM_PROMPT = `You are Closer's Letter Assistant.
 Your job is to help an organizer write a deeply personal celebration letter.
 You do NOT write the final personal letter for the user.
 Instead, you provide:

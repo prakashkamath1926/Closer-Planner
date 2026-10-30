@@ -19,9 +19,9 @@ describe("engine/ics.ts: iCalendar RFC 5545 Generation", () => {
     expect(formatIcsDateTime("2026-11-15T18:30:00Z")).toBe("20261115T183000Z");
     expect(ics).toContain("BEGIN:VCALENDAR\r\n");
     expect(ics).toContain("VERSION:2.0\r\n");
-    expect(ics).toContain("PRODID:-//Celebration Companion//EN\r\n");
+    expect(ics).toContain("PRODID:-//Closer//EN\r\n");
     expect(ics).toContain("BEGIN:VEVENT\r\n");
-    expect(ics).toContain("UID:occasion-occ-12345@celebrationcompanion.app\r\n");
+    expect(ics).toContain("UID:occasion-occ-12345@closer.app\r\n");
     expect(ics).toContain("DTSTAMP:20261029T120000Z\r\n");
     expect(ics).toContain("DTSTART:20261115T183000Z\r\n");
     expect(ics).toContain("DTEND:20261115T203000Z\r\n");

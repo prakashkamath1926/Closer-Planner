@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Heart } from "lucide-react";
+import { APP_NAME } from "@/lib/brand";
 
 import { MobileNav } from "./mobile-nav";
 import { navLinks } from "./nav-links";
@@ -15,7 +16,7 @@ export function Header() {
           <span className="grid size-9 place-items-center rounded-full bg-blush text-rose-deep">
             <Heart aria-hidden="true" className="size-5" fill="currentColor" />
           </span>
-          Celebration Companion
+          {APP_NAME}
         </Link>
 
         <nav aria-label="Primary" className="hidden md:block">

@@ -9,6 +9,8 @@
  * - Surprise protection: generic title ("Something special") unless organizer opts in.
  */
 
+import { APP_NAME } from "@/lib/brand";
+
 export interface IcsEventParams {
   occasion: {
     id: string;
@@ -82,7 +84,7 @@ export function generateOccasionIcs(params: IcsEventParams): string {
 
   const descriptionText = useGeneric
     ? "A celebration is scheduled. Private details are shielded."
-    : `Celebration for ${occasion.recipient_name || "a loved one"}.\nScheduled via Celebration Companion.`;
+    : `Celebration for ${occasion.recipient_name || "a loved one"}.\nScheduled via ${APP_NAME}.`;
 
   const eventDate = occasion.event_at ? new Date(occasion.event_at) : new Date(now.getTime() + 86400000);
   const dtStart = formatIcsDateTime(eventDate);
@@ -90,12 +92,12 @@ export function generateOccasionIcs(params: IcsEventParams): string {
   const eventEndDate = new Date(eventDate.getTime() + 2 * 60 * 60 * 1000);
   const dtEnd = formatIcsDateTime(eventEndDate);
 
-  const uid = `occasion-${occasion.id}@celebrationcompanion.app`;
+  const uid = `occasion-${occasion.id}@closer.app`;
 
   const lines: string[] = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//Celebration Companion//EN",
+    `PRODID:-//${APP_NAME}//EN`,
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     "BEGIN:VEVENT",

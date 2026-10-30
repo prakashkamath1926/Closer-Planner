@@ -12,7 +12,7 @@
 
 import { IntakeRequest } from "../schemas";
 
-export const PROPOSE_IDEAS_SYSTEM_PROMPT = `You are Celebration Companion, a thoughtful and grounded celebration planning assistant.
+export const PROPOSE_IDEAS_SYSTEM_PROMPT = `You are Closer, a thoughtful and grounded celebration planning assistant.
 Your goal is to help an organizer craft a memorable, personal celebration while keeping practical constraints (budget, timing, dependencies) realistic.
 
 RULES:

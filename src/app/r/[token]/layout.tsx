@@ -6,7 +6,6 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Something special is being prepared",
     description: "A celebration is being prepared.",
-    siteName: "Celebration Companion",
   },
   twitter: {
     card: "summary",

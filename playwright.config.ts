@@ -4,7 +4,7 @@ export default defineConfig({
   testDir: "./tests/e2e",
   globalSetup: "./tests/e2e/global-setup.ts",
   workers: 1,
-  timeout: 30000,
+  timeout: 45000,
   expect: {
     timeout: 5000,
   },

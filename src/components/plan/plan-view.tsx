@@ -29,6 +29,7 @@ import {
 } from "@/lib/engine/timeline";
 import { calculateEventCountdown } from "@/lib/engine/countdown";
 import { computeNextStep, type PlannerTab } from "@/lib/engine/next-step";
+import { APP_NAME } from "@/lib/brand";
 import { BudgetBar } from "./budget-bar";
 import { ChangeModal } from "./change-modal";
 import { TradeoffSelector } from "./tradeoff-selector";
@@ -347,7 +348,7 @@ export function PlanView({
               href="/"
               className="text-xs sm:text-sm font-semibold text-mauve hover:text-plum transition-colors"
             >
-              &larr; Celebration Companion
+              &larr; {APP_NAME}
             </Link>
             <span className="text-mauve/40">/</span>
             <span className="text-xs sm:text-sm font-medium text-plum truncate max-w-[200px]">

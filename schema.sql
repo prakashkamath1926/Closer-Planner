@@ -1,4 +1,4 @@
--- Celebration Companion: Supabase schema
+-- Closer: Supabase schema
 -- Run in the Supabase SQL editor. Anonymous auth is allowed (auth.uid() is set).
 -- Recipient and friend access go ONLY through server routes using the service role,
 -- which look up share_links by token hash. The service-role key never reaches the browser.

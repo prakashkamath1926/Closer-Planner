@@ -588,5 +588,13 @@ Implement Task 10 in order:
 
 **GenAI did:** implemented `blend.ts`, `blend-screen.tsx`, `api/blend/route.ts`, and `blend.test.ts`. **Developer did:** prompted sequential task specifications and reviewed criteria.
 
+---
+
+### Project Rename Note (2026-10-31)
+- **Product Name:** Renamed from "Celebration Companion" to **Closer** (`src/lib/brand.ts`).
+- **Tagline:** "Plan something that brings you closer."
+- **Scope:** Header, page metadata, Open Graph, `.ics` exports, README, and assistant prompts updated. Recipient and contribute pages remain strictly neutral without disclosing product or plan details. Historical log entries above preserve their original naming.
+
+
 
 

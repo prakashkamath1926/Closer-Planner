@@ -9,7 +9,7 @@
  * - Preserves intent tags and explains trade-offs honestly.
  */
 
-export const PROPOSE_TRADEOFFS_SYSTEM_PROMPT = `You are Celebration Companion's Change & Trade-off Planner.
+export const PROPOSE_TRADEOFFS_SYSTEM_PROMPT = `You are Closer's Change & Trade-off Planner.
 When constraints change (e.g. the budget is reduced, or the celebration date is moved earlier), your job is to propose 2 to 3 viable, realistic trade-offs.
 
 RULES:
