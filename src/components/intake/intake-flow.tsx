@@ -27,7 +27,7 @@ export function IntakeFlow() {
   const [savedOccasionId, setSavedOccasionId] = useState<string | null>(null);
 
   // Form State
-  const [occasionType, setOccasionType] = useState("Birthday");
+  const [occasionType, setOccasionType] = useState("");
   const [recipientName, setRecipientName] = useState("");
   const [relationship, setRelationship] = useState("");
   const [concept, setConcept] = useState("");
@@ -54,7 +54,7 @@ export function IntakeFlow() {
   const buildPayload = (): IntakeRequest => {
     return {
       entryPath,
-      occasionType,
+      occasionType: occasionType.trim() || "Celebration",
       recipientName: recipientName.trim() || undefined,
       relationship: relationship.trim() || undefined,
       intentSummary: intentSummary.trim() || undefined,

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { Users, HeartHandshake, CheckCircle2, Info, Sparkles, Save } from "lucide-react";
+import { Users, HeartHandshake, CheckCircle2, Info, Sparkles, Save, Share2, Check } from "lucide-react";
 import { BLEND_QUESTIONS, calculateBlendScore, AnswerEntry, BlendScoreResult } from "@/lib/engine/blend";
 import { OccasionRecord } from "./plan-view";
 
@@ -15,10 +15,57 @@ export function BlendScreen({ occasion }: BlendScreenProps) {
   // Answers state
   const [organizerAnswers, setOrganizerAnswers] = useState<Record<string, string>>({});
   const [friendAnswers, setFriendAnswers] = useState<Record<string, string>>({});
-  const [friendName, setFriendName] = useState("Riya");
+  const [friendName, setFriendName] = useState("Friend");
+  const [copiedLink, setCopiedLink] = useState(false);
 
   const [isSaving, setIsSaving] = useState(false);
   const [savedNotice, setSavedNotice] = useState<string | null>(null);
+
+  // Dynamic tailored questions incorporating recipient context
+  const questions = useMemo(() => {
+    const name = occasion.recipient_name || "the guest of honor";
+    return BLEND_QUESTIONS.map((q) => {
+      if (q.key === "celebration_scale") {
+        return {
+          ...q,
+          title: `Celebration Scale & Setting for ${name}`,
+          subtitle: `What atmosphere would make ${name} feel most celebrated?`,
+        };
+      }
+      if (q.key === "focus_type") {
+        return {
+          ...q,
+          title: `Core Focus for ${name}`,
+          subtitle: `What would leave the most meaningful memory for ${name}?`,
+        };
+      }
+      if (q.key === "culinary_style") {
+        return {
+          ...q,
+          subtitle: `What dining style suits ${name} and the celebration best?`,
+        };
+      }
+      if (q.key === "surprise_level") {
+        return {
+          ...q,
+          subtitle: `How does ${name} genuinely feel about surprises and being center of attention?`,
+        };
+      }
+      if (q.key === "energy_flow") {
+        return {
+          ...q,
+          subtitle: `What pacing and event rhythm keeps ${name} most engaged?`,
+        };
+      }
+      if (q.key === "memorabilia_format") {
+        return {
+          ...q,
+          subtitle: `What takeaway would ${name} treasure most after the celebration?`,
+        };
+      }
+      return q;
+    });
+  }, [occasion.recipient_name]);
 
   // Load existing session if saved
   useEffect(() => {
@@ -122,8 +169,28 @@ export function BlendScreen({ occasion }: BlendScreenProps) {
           </p>
         </div>
 
-        {/* Action button */}
+        {/* Action buttons */}
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== "undefined" && navigator.clipboard) {
+                const shareUrl = `${window.location.origin}/plan/${occasion.id}?tab=blend`;
+                navigator.clipboard.writeText(shareUrl);
+                setCopiedLink(true);
+                setTimeout(() => setCopiedLink(false), 2500);
+              }
+            }}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-white px-3.5 py-2 text-xs font-semibold text-plum shadow-2xs hover:bg-sand/40"
+          >
+            {copiedLink ? (
+              <Check className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
+            ) : (
+              <Share2 className="h-3.5 w-3.5 text-mauve" aria-hidden="true" />
+            )}
+            <span>{copiedLink ? "Link Copied!" : "Share Link"}</span>
+          </button>
+
           <button
             type="button"
             onClick={handleSaveToCloud}
@@ -202,7 +269,7 @@ export function BlendScreen({ occasion }: BlendScreenProps) {
             Answer based on your own plan and vision for {occasion.recipient_name || "the guest of honor"}.
           </div>
 
-          {BLEND_QUESTIONS.map((q) => {
+          {questions.map((q) => {
             const currentVal = organizerAnswers[q.key];
             return (
               <div key={q.key} className="rounded-xl border border-blush bg-white p-4 shadow-2xs">
@@ -271,7 +338,7 @@ export function BlendScreen({ occasion }: BlendScreenProps) {
             </p>
           </div>
 
-          {BLEND_QUESTIONS.map((q) => {
+          {questions.map((q) => {
             const currentVal = friendAnswers[q.key];
             return (
               <div key={q.key} className="rounded-xl border border-blush bg-white p-4 shadow-2xs">

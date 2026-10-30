@@ -100,7 +100,7 @@ export function generateInvitationHtml(payload: PublicInvitationPayload): string
       margin: 0;
       padding: 40px 16px;
       background-color: #FAF6F0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       color: #2E1A2B;
       display: flex;
       justify-content: center;
@@ -109,61 +109,69 @@ export function generateInvitationHtml(payload: PublicInvitationPayload): string
       box-sizing: border-box;
     }
     .card {
-      max-width: 540px;
+      max-width: 500px;
       width: 100%;
       background-color: #FFFFFF;
       border: 1px solid #F0D4CE;
       border-radius: 24px;
-      padding: 48px 36px;
+      padding: 36px 32px;
       text-align: center;
-      box-shadow: 0 4px 20px rgba(46, 26, 43, 0.05);
-      position: relative;
+      box-shadow: 0 4px 24px rgba(46, 26, 43, 0.06);
+      box-sizing: border-box;
     }
     .botanical {
-      width: 48px;
-      height: 48px;
-      margin: 0 auto 16px;
+      width: 32px;
+      height: 32px;
+      margin: 0 auto 12px;
       color: #9E526B;
+      display: block;
     }
     .tagline {
-      font-size: 12px;
-      font-weight: 600;
+      font-size: 11px;
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 2px;
+      letter-spacing: 1.5px;
       color: #9E526B;
       margin-bottom: 8px;
     }
     h1 {
-      font-family: Georgia, serif;
-      font-size: 32px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 24px;
+      font-weight: 700;
       color: #2E1A2B;
-      margin: 0 0 16px;
-      line-height: 1.25;
+      margin: 0 0 14px;
+      line-height: 1.35;
     }
     .date-badge {
-      display: inline-block;
-      background-color: #FCE8E4;
-      color: #9E526B;
-      padding: 8px 18px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background-color: #FFE9DF;
+      color: #A63A5C;
+      padding: 6px 16px;
       border-radius: 9999px;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 600;
-      margin-bottom: 24px;
+      margin: 0 auto 20px;
     }
     .message {
-      font-size: 16px;
+      font-size: 15px;
       line-height: 1.6;
-      color: #7A5C6E;
-      margin-bottom: 32px;
+      color: #7A5C6B;
+      margin: 0 0 24px;
     }
     .details {
-      border-top: 1px solid #FCE8E4;
-      padding-top: 24px;
+      border-top: 1px solid #F0D4CE;
+      padding-top: 18px;
       font-size: 13px;
-      color: #7A5C6E;
+      color: #7A5C6B;
       display: flex;
       flex-direction: column;
       gap: 8px;
+      text-align: left;
+    }
+    .details strong {
+      color: #2E1A2B;
     }
   </style>
 </head>
