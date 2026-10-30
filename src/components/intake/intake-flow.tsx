@@ -12,8 +12,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Check } from "lucide-react";
+import { Check, Mic, MicOff } from "lucide-react";
 import { EntryPath, CelebrationIdea, IntakeRequest, UrgencyMode } from "@/lib/ai/schemas";
+import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
 import { IdeasScreen } from "./ideas-screen";
 
 export function IntakeFlow() {
@@ -40,6 +41,25 @@ export function IntakeFlow() {
   const [isSurprise, setIsSurprise] = useState(false);
   const [avoidNotes, setAvoidNotes] = useState("");
   const [knownInterests, setKnownInterests] = useState("");
+
+  const {
+    isSupported: isSpeechSupported,
+    state: speechState,
+    errorMessage: speechError,
+    startListening,
+    stopListening,
+    lang: speechLang,
+    setLang: setSpeechLang,
+  } = useSpeechRecognition({
+    lang: "en-US",
+    onResult: (transcript) => {
+      if (entryPath === "have_idea") {
+        setConcept((prev) => (prev ? `${prev} ${transcript}` : transcript));
+      } else {
+        setKnownInterests((prev) => (prev ? `${prev}, ${transcript}` : transcript));
+      }
+    },
+  });
 
   const handleEntryPathChange = (path: EntryPath) => {
     setEntryPath(path);
@@ -305,10 +325,11 @@ export function IntakeFlow() {
         {/* Question 1: Who & Occasion */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-mauve">
+            <label htmlFor="occasion-type-input" className="block text-xs font-semibold uppercase tracking-wider text-mauve">
               What is the occasion?
             </label>
             <input
+              id="occasion-type-input"
               type="text"
               value={occasionType}
               onChange={(e) => setOccasionType(e.target.value)}
@@ -318,10 +339,11 @@ export function IntakeFlow() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-mauve">
+            <label htmlFor="recipient-name-input" className="block text-xs font-semibold uppercase tracking-wider text-mauve">
               Who is it for? (Name)
             </label>
             <input
+              id="recipient-name-input"
               type="text"
               value={recipientName}
               onChange={(e) => setRecipientName(e.target.value)}
@@ -331,10 +353,11 @@ export function IntakeFlow() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-mauve">
+            <label htmlFor="relationship-input" className="block text-xs font-semibold uppercase tracking-wider text-mauve">
               Relationship
             </label>
             <input
+              id="relationship-input"
               type="text"
               value={relationship}
               onChange={(e) => setRelationship(e.target.value)}
@@ -390,6 +413,76 @@ export function IntakeFlow() {
           </div>
         )}
 
+        {/* Voice Input (Progressive enhancement: only rendered if Speech API supported) */}
+        {isSpeechSupported && (
+          <div className="rounded-2xl border border-blush/60 bg-sand/30 p-3.5 space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (speechState === "listening") {
+                      stopListening();
+                    } else {
+                      startListening();
+                    }
+                  }}
+                  aria-pressed={speechState === "listening"}
+                  aria-label={speechState === "listening" ? "Stop Voice input" : "Speak it with voice"}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all shadow-2xs ${
+                    speechState === "listening"
+                      ? "bg-rose-deep text-white ring-2 ring-rose/40 animate-pulse motion-reduce:animate-none"
+                      : "bg-white text-rose-deep border border-rose-deep/30 hover:bg-blush"
+                  }`}
+                >
+                  {speechState === "listening" ? (
+                    <>
+                      <MicOff className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>Listening... (Click or Esc to stop)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Mic className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>Speak it</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Optional language selector */}
+                <div className="flex items-center gap-1">
+                  <label htmlFor="voice-language-select" className="sr-only">
+                    Spoken language
+                  </label>
+                  <select
+                    id="voice-language-select"
+                    aria-label="Spoken language"
+                    value={speechLang}
+                    onChange={(e) => setSpeechLang(e.target.value)}
+                    className="rounded-lg border border-mauve/20 bg-white px-2 py-1 text-[11px] text-plum focus:ring-1 focus:ring-rose"
+                  >
+                    <option value="en-US">English (US)</option>
+                    <option value="en-IN">English (India)</option>
+                    <option value="hi-IN">Hindi (हिंदी)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Status announcement */}
+              <div aria-live="polite" className="text-xs font-medium text-mauve">
+                {speechState === "listening" && "Listening... speak clearly"}
+                {speechState === "error" && (
+                  <span className="text-rose-deep">{speechError}</span>
+                )}
+              </div>
+            </div>
+
+            {/* Privacy note */}
+            <p className="text-[11px] text-mauve leading-normal">
+              Voice uses your browser&apos;s speech recognition, which may send audio to your browser provider. We only receive the text.
+            </p>
+          </div>
+        )}
+
         {/* Question 3: Desired feeling / Intent */}
         {entryPath !== "need_now" && (
           <div>
@@ -409,10 +502,11 @@ export function IntakeFlow() {
         {/* Question 4: Budget & Timing */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-mauve">
+            <label htmlFor="target-budget-input" className="block text-xs font-semibold uppercase tracking-wider text-mauve">
               Target Budget (INR)
             </label>
             <input
+              id="target-budget-input"
               type="number"
               min="0"
               value={budgetTotal ?? ""}
@@ -431,10 +525,11 @@ export function IntakeFlow() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-mauve">
+            <label htmlFor="guest-count-input" className="block text-xs font-semibold uppercase tracking-wider text-mauve">
               Guest Count
             </label>
             <input
+              id="guest-count-input"
               type="number"
               min="0"
               value={guestCount ?? ""}
@@ -453,10 +548,11 @@ export function IntakeFlow() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-mauve">
+            <label htmlFor="target-date-input" className="block text-xs font-semibold uppercase tracking-wider text-mauve">
               Target Date
             </label>
             <input
+              id="target-date-input"
               type="date"
               value={eventAt}
               onChange={(e) => setEventAt(e.target.value)}
@@ -465,10 +561,11 @@ export function IntakeFlow() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-mauve">
+            <label htmlFor="urgency-timing-select" className="block text-xs font-semibold uppercase tracking-wider text-mauve">
               Urgency Timing
             </label>
             <select
+              id="urgency-timing-select"
               value={urgencyMode}
               onChange={(e) => setUrgencyMode(e.target.value as UrgencyMode)}
               className="mt-1.5 w-full rounded-2xl border border-mauve/20 bg-paper px-4 py-2.5 text-sm text-plum focus:border-rose focus:outline-none"
