@@ -18,9 +18,9 @@ const savePlanRequestSchema = z.object({
   recipientName: z.string().nullable().optional(),
   intentSummary: z.string().nullable().optional(),
   eventAt: z.string().nullable().optional(),
-  budgetTotal: z.number().nullable().optional(),
+  budgetTotal: z.number().nonnegative().nullable().optional(),
   currency: z.string().default("INR"),
-  guestCount: z.number().nullable().optional(),
+  guestCount: z.number().int().nonnegative().nullable().optional(),
   isSurprise: z.boolean().default(false),
   avoidNotes: z.string().nullable().optional(),
 });
@@ -70,9 +70,15 @@ export async function POST(req: NextRequest) {
         recipient_name: data.recipientName || null,
         intent_summary: data.intentSummary || idea.whyItSuitsThem,
         event_at: data.eventAt || null,
-        budget_total: data.budgetTotal !== undefined && data.budgetTotal !== null ? data.budgetTotal.toFixed(2) : null,
+        budget_total:
+          data.budgetTotal !== undefined && data.budgetTotal !== null
+            ? Math.max(0, data.budgetTotal).toFixed(2)
+            : null,
         currency: data.currency,
-        guest_count: data.guestCount || null,
+        guest_count:
+          data.guestCount !== undefined && data.guestCount !== null
+            ? Math.max(0, Math.floor(data.guestCount))
+            : null,
         urgency_mode: idea.urgencyMode,
         entry_path: data.entryPath,
         is_surprise: data.isSurprise,

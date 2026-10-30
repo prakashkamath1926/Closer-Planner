@@ -37,6 +37,16 @@ const timeStore = {
   },
 };
 
+const emptySubscribe = () => () => {};
+
+function useHasNotificationSupport() {
+  return useSyncExternalStore(
+    emptySubscribe,
+    () => typeof window !== "undefined" && "Notification" in window,
+    () => false,
+  );
+}
+
 interface CalendarViewProps {
   occasion: OccasionRecord;
   items: PlanItemRecord[];
@@ -46,6 +56,7 @@ export function CalendarView({ occasion, items }: CalendarViewProps) {
   const [activeTab, setActiveTab] = useState<"agenda" | "month" | "runsheet">("agenda");
   const [optInSecretTitle, setOptInSecretTitle] = useState(false);
   const [notificationStatus, setNotificationStatus] = useState<string>("default");
+  const hasNotificationSupport = useHasNotificationSupport();
 
   const nowMs = useSyncExternalStore(timeStore.subscribe, timeStore.getSnapshot, timeStore.getServerSnapshot);
 
@@ -210,7 +221,7 @@ export function CalendarView({ occasion, items }: CalendarViewProps) {
             Export .ics Calendar
           </button>
 
-          {typeof window !== "undefined" && "Notification" in window && (
+          {hasNotificationSupport && (
             <button
               type="button"
               onClick={requestNotificationPermission}
@@ -231,7 +242,7 @@ export function CalendarView({ occasion, items }: CalendarViewProps) {
               <span className="text-xs font-semibold uppercase tracking-wider text-mauve">
                 Countdown to {occasion.title}
               </span>
-              <p className="text-xs text-mauve/80">
+              <p className="text-xs text-mauve/80" suppressHydrationWarning>
                 {countdown.isPast ? "Event has arrived!" : "Time remaining to the celebration"}
               </p>
             </div>
@@ -242,6 +253,7 @@ export function CalendarView({ occasion, items }: CalendarViewProps) {
               role="timer"
               aria-live="polite"
               aria-label={`Countdown: ${countdown.days} days, ${countdown.hours} hours, ${countdown.minutes} minutes, ${countdown.seconds} seconds`}
+              suppressHydrationWarning
             >
               <div className="flex min-w-[50px] flex-col items-center rounded-lg bg-sand/60 px-2.5 py-1.5 text-center">
                 <span className="font-mono text-xl font-bold text-plum transition-none motion-reduce:transition-none sm:text-2xl">

@@ -51,9 +51,9 @@ export function ChangeModal({
     setIsLoading(true);
     setError(null);
 
-    const newBudget = budgetInput.trim() ? Number(budgetInput) : null;
+    const newBudget = budgetInput.trim() ? Math.max(0, Number(budgetInput)) : null;
     const newDate = eventAtInput.trim() ? new Date(eventAtInput).toISOString() : null;
-    const newGuests = guestCountInput.trim() ? Number(guestCountInput) : null;
+    const newGuests = guestCountInput.trim() ? Math.max(0, Math.floor(Number(guestCountInput))) : null;
 
     try {
       const res = await fetch("/api/changes/propose", {
@@ -146,9 +146,17 @@ export function ChangeModal({
             </label>
             <input
               type="number"
-              min="1"
+              min="0"
               value={guestCountInput}
-              onChange={(e) => setGuestCountInput(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === "") {
+                  setGuestCountInput("");
+                } else {
+                  const num = Number(val);
+                  setGuestCountInput(isNaN(num) ? "" : String(Math.max(0, Math.floor(num))));
+                }
+              }}
               placeholder="e.g. 25"
               className="mt-1 w-full rounded-2xl border border-mauve/20 bg-white px-4 py-2.5 text-sm text-plum placeholder:text-mauve/40 focus:border-rose focus:ring-1 focus:ring-rose"
             />

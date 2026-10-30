@@ -128,9 +128,9 @@ export function IntakeFlow() {
         recipientName: recipientName.trim() || undefined,
         intentSummary: intentSummary.trim() || undefined,
         eventAt: eventAt ? eventAt : undefined,
-        budgetTotal,
+        budgetTotal: budgetTotal !== undefined ? Math.max(0, budgetTotal) : undefined,
         currency,
-        guestCount,
+        guestCount: guestCount !== undefined ? Math.max(0, Math.floor(guestCount)) : undefined,
         isSurprise,
         avoidNotes: avoidNotes.trim() || undefined,
       };
@@ -413,8 +413,17 @@ export function IntakeFlow() {
             </label>
             <input
               type="number"
+              min="0"
               value={budgetTotal ?? ""}
-              onChange={(e) => setBudgetTotal(e.target.value ? Number(e.target.value) : undefined)}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === "") {
+                  setBudgetTotal(undefined);
+                } else {
+                  const num = Number(raw);
+                  setBudgetTotal(isNaN(num) ? undefined : Math.max(0, num));
+                }
+              }}
               placeholder="50000"
               className="mt-1.5 w-full rounded-2xl border border-mauve/20 bg-paper px-4 py-2.5 text-sm text-plum focus:border-rose focus:outline-none"
             />
@@ -426,8 +435,17 @@ export function IntakeFlow() {
             </label>
             <input
               type="number"
+              min="0"
               value={guestCount ?? ""}
-              onChange={(e) => setGuestCount(e.target.value ? Number(e.target.value) : undefined)}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === "") {
+                  setGuestCount(undefined);
+                } else {
+                  const num = Number(raw);
+                  setGuestCount(isNaN(num) ? undefined : Math.max(0, Math.floor(num)));
+                }
+              }}
               placeholder="e.g. 15"
               className="mt-1.5 w-full rounded-2xl border border-mauve/20 bg-paper px-4 py-2.5 text-sm text-plum focus:border-rose focus:outline-none"
             />
