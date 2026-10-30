@@ -9,10 +9,10 @@
   --paper: #fdfbf7;
   --card: #ffffff;
   --blush: #fff0f1;
-  --rose: #b33a5e;
+  --rose: #c2476b;
   --rose-deep: #a63a5c;
   --plum: #3b2430;
-  --mauve: #6e505f;
+  --mauve: #7a5c6b;
   --lavender: #d9ccf0;
   --peach: #ffc9b0;
   --butter: #fbe7a1;
@@ -84,52 +84,18 @@
   --font-hand: var(--font-caveat), cursive;
 
   --shadow-paper: 0 4px 20px rgba(59, 36, 48, 0.06);
-
-  --text-xs: 0.875rem;
-  --text-xs--line-height: 1.25rem;
-  --text-sm: 0.875rem;
-  --text-sm--line-height: 1.25rem;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
-  font-size: 0.875rem;
   line-height: 1.6;
 }
 
-/* Enforce 14px minimum body and helper text across all tags */
-body,
-p,
-span:not([aria-hidden="true"]),
-label,
-input,
-select,
-textarea,
-button,
-td,
-th,
-li {
-  font-size: max(14px, 1em);
-}
-
-/* Ensure micro-text classes respect the 14px accessibility baseline */
-[class*="text-[10px]"],
-[class*="text-[11px]"],
-[class*="text-[12px]"],
-[class*="text-[13px]"],
-[class*="text-[9px]"],
-[class*="text-[8px]"] {
-  font-size: 0.875rem !important;
-  line-height: 1.25rem !important;
-}
-
-/* Accessible placeholder contrast (>= 4.5:1 on light input backgrounds) */
 input::placeholder,
 textarea::placeholder {
-  color: var(--mauve) !important;
-  opacity: 1 !important;
+  color: var(--mauve);
 }
 
 h1,
@@ -140,18 +106,9 @@ h3 {
   line-height: 1.2;
 }
 
-/* Visible focus ring on every control (focus-visible:ring-2 focus-visible:ring-rose) */
-:focus-visible,
-button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible,
-[role="tab"]:focus-visible,
-[role="button"]:focus-visible,
-[tabindex]:focus-visible {
-  outline: 2px solid var(--rose) !important;
-  outline-offset: 2px !important;
+:focus-visible {
+  outline: 2px solid var(--rose-deep);
+  outline-offset: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {

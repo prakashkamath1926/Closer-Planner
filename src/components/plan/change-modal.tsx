@@ -126,7 +126,7 @@ export function ChangeModal({
               value={budgetInput}
               onChange={(e) => setBudgetInput(e.target.value)}
               placeholder="e.g. 650000"
-              className="mt-1 w-full rounded-2xl border border-mauve/20 bg-white px-4 py-2.5 text-sm text-plum placeholder:text-mauve/40 focus:border-rose focus:ring-1 focus:ring-rose"
+              className="mt-1 w-full rounded-2xl border border-mauve/20 bg-white px-4 py-2.5 text-sm text-plum placeholder:text-mauve focus:border-rose focus:ring-1 focus:ring-rose"
             />
           </div>
 
@@ -160,7 +160,7 @@ export function ChangeModal({
                 }
               }}
               placeholder="e.g. 25"
-              className="mt-1 w-full rounded-2xl border border-mauve/20 bg-white px-4 py-2.5 text-sm text-plum placeholder:text-mauve/40 focus:border-rose focus:ring-1 focus:ring-rose"
+              className="mt-1 w-full rounded-2xl border border-mauve/20 bg-white px-4 py-2.5 text-sm text-plum placeholder:text-mauve focus:border-rose focus:ring-1 focus:ring-rose"
             />
           </div>
 
@@ -174,7 +174,7 @@ export function ChangeModal({
               value={reasonInput}
               onChange={(e) => setReasonInput(e.target.value)}
               placeholder="e.g. Venue moved date 2 weeks earlier; need to trim budget"
-              className="mt-1 w-full rounded-2xl border border-mauve/20 bg-white px-4 py-2.5 text-sm text-plum placeholder:text-mauve/40 focus:border-rose focus:ring-1 focus:ring-rose"
+              className="mt-1 w-full rounded-2xl border border-mauve/20 bg-white px-4 py-2.5 text-sm text-plum placeholder:text-mauve focus:border-rose focus:ring-1 focus:ring-rose"
             />
           </div>
 
