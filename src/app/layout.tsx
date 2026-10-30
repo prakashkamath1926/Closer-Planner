@@ -29,6 +29,7 @@ const caveat = localFont({
 });
 
 import { APP_NAME, TAGLINE } from "@/lib/brand";
+import { CustomCursor } from "@/components/ui/custom-cursor";
 
 export const metadata: Metadata = {
   title: {
@@ -66,6 +67,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           Skip to main content
         </a>
         <Header />
+        <CustomCursor />
         <main id="main" className="flex-1">
           {children}
         </main>
