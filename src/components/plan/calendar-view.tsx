@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useSyncExternalStore } from "react";
-import { Calendar as CalendarIcon, Clock, Download, ListOrdered, CalendarDays, ShieldAlert, CheckCircle2, AlertCircle, AlertTriangle } from "lucide-react";
+import { Clock, Download, ListOrdered, CalendarDays, ShieldAlert, CheckCircle2, AlertCircle, AlertTriangle } from "lucide-react";
 import { calculateEventCountdown } from "@/lib/engine/countdown";
 import { generateOccasionIcs } from "@/lib/engine/ics";
 import { generateTonightRunSheet, RunSheetSlot } from "@/lib/engine/run-sheet";
@@ -198,106 +198,73 @@ export function CalendarView({ occasion, items }: CalendarViewProps) {
   }, [viewMonthYear, occasion.event_at, items]);
 
   return (
-    <section
-      aria-labelledby="calendar-heading"
-      className="rounded-2xl border border-blush bg-sand/30 p-5 shadow-xs sm:p-6"
-    >
-      {/* Header and Countdown */}
-      <div className="flex flex-col justify-between gap-4 border-b border-blush pb-5 sm:flex-row sm:items-center">
-        <div>
-          <div className="flex items-center gap-2">
-            <CalendarIcon className="h-5 w-5 text-rose" aria-hidden="true" />
-            <h2 id="calendar-heading" className="font-serif text-xl font-bold text-plum sm:text-2xl">
-              Timeline, Countdown & Calendar
-            </h2>
-          </div>
-          <p className="mt-1 text-xs text-mauve">
-            Track milestones, minute-by-minute Tonight schedules, and export to Google Calendar or Apple iCal.
-          </p>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={handleDownloadIcs}
-            className="inline-flex items-center gap-2 rounded-xl border border-rose bg-white px-3.5 py-2 text-xs font-medium text-rose shadow-xs hover:bg-blush focus:outline-hidden focus:ring-2 focus:ring-rose/40"
-          >
-            <Download className="h-4 w-4" aria-hidden="true" />
-            Export .ics Calendar
-          </button>
-
-          {hasNotificationSupport && (
-            <button
-              type="button"
-              onClick={requestNotificationPermission}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-white px-3 py-2 text-xs font-medium text-plum/80 hover:bg-sand/60 focus:outline-hidden focus:ring-2 focus:ring-rose/40"
-            >
-              <Clock className="h-3.5 w-3.5 text-mauve" aria-hidden="true" />
-              {notificationStatus === "granted" ? "Alerts Enabled" : "Enable Browser Alerts"}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Countdown Card (Respects prefers-reduced-motion) */}
-      {occasion.event_at && (
-        <div className="mt-5 rounded-xl border border-blush bg-white p-4 shadow-xs">
-          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-            <div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-mauve">
-                Countdown to {occasion.title}
-              </span>
-              <p className="text-xs text-mauve/80" suppressHydrationWarning>
-                {countdown.isPast ? "Event has arrived!" : "Time remaining to the celebration"}
+    <section aria-labelledby="calendar-heading" className="space-y-6">
+      {/* 1. Countdown Hero Card - Largest visual weight on Timeline tab */}
+      {occasion.event_at ? (
+        <div className="rounded-3xl border border-blush bg-white p-6 shadow-sm sm:p-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-rose" aria-hidden="true" />
+                <span className="text-xs font-semibold tracking-wider text-mauve uppercase">
+                  Celebration Countdown
+                </span>
+              </div>
+              <h2 id="calendar-heading" className="font-serif text-2xl font-bold text-plum sm:text-3xl">
+                {occasion.title}
+              </h2>
+              <p className="text-sm text-mauve" suppressHydrationWarning>
+                {countdown.isPast
+                  ? "The celebration moment has arrived!"
+                  : "Time remaining until the celebration begins"}
               </p>
             </div>
 
-            {/* Countdown Digits */}
+            {/* Large Hero Countdown Digits */}
             <div
-              className="flex items-center gap-2 sm:gap-3"
+              className="flex items-center justify-center gap-2 sm:gap-4"
               role="timer"
               aria-live="polite"
               aria-label={`Countdown: ${countdown.days} days, ${countdown.hours} hours, ${countdown.minutes} minutes, ${countdown.seconds} seconds`}
               suppressHydrationWarning
             >
-              <div className="flex min-w-[50px] flex-col items-center rounded-lg bg-sand/60 px-2.5 py-1.5 text-center">
-                <span className="font-mono text-xl font-bold text-plum transition-none motion-reduce:transition-none sm:text-2xl">
+              <div className="flex min-w-[64px] flex-col items-center rounded-2xl bg-sand/60 px-3 py-2.5 text-center sm:min-w-[80px] sm:px-4 sm:py-3.5 shadow-2xs">
+                <span className="font-mono text-3xl font-bold text-plum transition-none motion-reduce:transition-none sm:text-5xl">
                   {countdown.days}
                 </span>
-                <span className="text-[10px] font-medium uppercase text-mauve">Days</span>
+                <span className="mt-1 text-xs font-semibold uppercase tracking-wider text-mauve">Days</span>
               </div>
-              <span className="text-base font-bold text-mauve">:</span>
+              <span className="text-xl font-bold text-mauve/60 sm:text-2xl">:</span>
 
-              <div className="flex min-w-[50px] flex-col items-center rounded-lg bg-sand/60 px-2.5 py-1.5 text-center">
-                <span className="font-mono text-xl font-bold text-plum transition-none motion-reduce:transition-none sm:text-2xl">
+              <div className="flex min-w-[64px] flex-col items-center rounded-2xl bg-sand/60 px-3 py-2.5 text-center sm:min-w-[80px] sm:px-4 sm:py-3.5 shadow-2xs">
+                <span className="font-mono text-3xl font-bold text-plum transition-none motion-reduce:transition-none sm:text-5xl">
                   {countdown.hours}
                 </span>
-                <span className="text-[10px] font-medium uppercase text-mauve">Hours</span>
+                <span className="mt-1 text-xs font-semibold uppercase tracking-wider text-mauve">Hours</span>
               </div>
-              <span className="text-base font-bold text-mauve">:</span>
+              <span className="text-xl font-bold text-mauve/60 sm:text-2xl">:</span>
 
-              <div className="flex min-w-[50px] flex-col items-center rounded-lg bg-sand/60 px-2.5 py-1.5 text-center">
-                <span className="font-mono text-xl font-bold text-plum transition-none motion-reduce:transition-none sm:text-2xl">
+              <div className="flex min-w-[64px] flex-col items-center rounded-2xl bg-sand/60 px-3 py-2.5 text-center sm:min-w-[80px] sm:px-4 sm:py-3.5 shadow-2xs">
+                <span className="font-mono text-3xl font-bold text-plum transition-none motion-reduce:transition-none sm:text-5xl">
                   {countdown.minutes}
                 </span>
-                <span className="text-[10px] font-medium uppercase text-mauve">Mins</span>
+                <span className="mt-1 text-xs font-semibold uppercase tracking-wider text-mauve">Mins</span>
               </div>
-              <span className="text-base font-bold text-mauve">:</span>
+              <span className="text-xl font-bold text-mauve/60 sm:text-2xl">:</span>
 
-              <div className="flex min-w-[50px] flex-col items-center rounded-lg bg-sand/60 px-2.5 py-1.5 text-center">
-                <span className="font-mono text-xl font-bold text-rose transition-none motion-reduce:transition-none sm:text-2xl">
+              <div className="flex min-w-[64px] flex-col items-center rounded-2xl bg-sand/60 px-3 py-2.5 text-center sm:min-w-[80px] sm:px-4 sm:py-3.5 shadow-2xs">
+                <span className="font-mono text-3xl font-bold text-rose transition-none motion-reduce:transition-none sm:text-5xl">
                   {countdown.seconds}
                 </span>
-                <span className="text-[10px] font-medium uppercase text-mauve">Secs</span>
+                <span className="mt-1 text-xs font-semibold uppercase tracking-wider text-rose">Secs</span>
               </div>
             </div>
           </div>
 
           {/* Surprise Shield ICS toggle */}
           {Boolean(occasion.is_surprise) && (
-            <div className="mt-3 flex items-center gap-2 border-t border-blush/60 pt-3 text-xs text-mauve">
-              <ShieldAlert className="h-4 w-4 text-peach" aria-hidden="true" />
+            <div className="mt-5 flex items-center gap-2 border-t border-blush/60 pt-4 text-xs text-mauve sm:text-sm">
+              <ShieldAlert className="h-4 w-4 shrink-0 text-peach" aria-hidden="true" />
               <label className="flex cursor-pointer items-center gap-2">
                 <input
                   type="checkbox"
@@ -310,48 +277,78 @@ export function CalendarView({ occasion, items }: CalendarViewProps) {
             </div>
           )}
         </div>
+      ) : (
+        <div className="rounded-3xl border border-dashed border-mauve/20 bg-white p-6 text-center text-sm text-mauve">
+          Target date not set yet. Adjust the plan date to enable the live countdown.
+        </div>
       )}
 
-      {/* Tabs */}
-      <div className="mt-6 flex flex-wrap gap-2 border-b border-blush pb-2">
-        <button
-          type="button"
-          onClick={() => setActiveTab("agenda")}
-          className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors ${
-            activeTab === "agenda"
-              ? "bg-rose text-white shadow-xs"
-              : "bg-white text-plum hover:bg-sand/60"
-          }`}
-        >
-          <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
-          Agenda View ({datedTasks.length} Due Tasks)
-        </button>
+      {/* 2. Timeline Controls & Schedule View Switcher */}
+      <div className="flex flex-col justify-between gap-4 border-b border-blush pb-4 sm:flex-row sm:items-center">
+        {/* View Switcher Pills */}
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab("agenda")}
+            className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-rose ${
+              activeTab === "agenda"
+                ? "bg-rose text-white shadow-xs"
+                : "bg-white text-mauve hover:text-plum hover:bg-blush border border-mauve/20"
+            }`}
+          >
+            <ListOrdered className="h-4 w-4" aria-hidden="true" />
+            <span>Agenda View</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveTab("month")}
-          className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors ${
-            activeTab === "month"
-              ? "bg-rose text-white shadow-xs"
-              : "bg-white text-plum hover:bg-sand/60"
-          }`}
-        >
-          <CalendarIcon className="h-3.5 w-3.5" aria-hidden="true" />
-          Month View
-        </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("month")}
+            className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-rose ${
+              activeTab === "month"
+                ? "bg-rose text-white shadow-xs"
+                : "bg-white text-mauve hover:text-plum hover:bg-blush border border-mauve/20"
+            }`}
+          >
+            <CalendarDays className="h-4 w-4" aria-hidden="true" />
+            <span>Month View</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveTab("runsheet")}
-          className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors ${
-            activeTab === "runsheet"
-              ? "bg-rose text-white shadow-xs"
-              : "bg-white text-plum hover:bg-sand/60"
-          }`}
-        >
-          <ListOrdered className="h-3.5 w-3.5" aria-hidden="true" />
-          &quot;Tonight&quot; Run Sheet ({runSheetSlots.length} Slots)
-        </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("runsheet")}
+            className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-rose ${
+              activeTab === "runsheet"
+                ? "bg-rose text-white shadow-xs"
+                : "bg-white text-mauve hover:text-plum hover:bg-blush border border-mauve/20"
+            }`}
+          >
+            <Clock className="h-4 w-4" aria-hidden="true" />
+            <span>&ldquo;Tonight&rdquo; Run Sheet</span>
+          </button>
+        </div>
+
+        {/* Calendar Action Buttons */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handleDownloadIcs}
+            className="inline-flex items-center gap-2 rounded-xl border border-rose bg-white px-3.5 py-2 text-xs sm:text-sm font-semibold text-rose shadow-xs hover:bg-blush focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-rose transition-colors"
+          >
+            <Download className="h-4 w-4" aria-hidden="true" />
+            <span>Export .ics Calendar</span>
+          </button>
+
+          {hasNotificationSupport && (
+            <button
+              type="button"
+              onClick={requestNotificationPermission}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-white px-3 py-2 text-xs sm:text-sm font-medium text-plum/80 hover:bg-sand/60 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-rose transition-colors"
+            >
+              <Clock className="h-3.5 w-3.5 text-mauve" aria-hidden="true" />
+              <span>{notificationStatus === "granted" ? "Alerts Enabled" : "Enable Browser Alerts"}</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Tab 1: Agenda View */}
