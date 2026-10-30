@@ -154,7 +154,7 @@ export function BlendScreen({ occasion }: BlendScreenProps) {
           }`}
         >
           <div>
-            <span className="text-[10px] uppercase tracking-wider text-rose">Step 1</span>
+            <span className="text-[10px] uppercase tracking-wider text-rose-deep">Step 1</span>
             <div className="text-xs font-semibold">Your Answers (Organizer)</div>
           </div>
           <span className="font-mono text-xs">{Object.keys(organizerAnswers).length}/6</span>

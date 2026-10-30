@@ -402,6 +402,7 @@ export function VendorSection({
 
                           {/* Status Ladder Select */}
                           <select
+                            aria-label={`Status for ${vendor.name}`}
                             value={vendor.status}
                             onChange={(e) =>
                               handleStatusChange(vendor, e.target.value as VendorStatus)
@@ -471,10 +472,11 @@ export function VendorSection({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-plum uppercase tracking-wider">
+                  <label htmlFor="vendor-category-select" className="block text-xs font-semibold text-plum uppercase tracking-wider">
                     Category
                   </label>
                   <select
+                    id="vendor-category-select"
                     value={newCategory}
                     onChange={(e) => setNewCategory(e.target.value)}
                     className="mt-1 w-full rounded-2xl border border-blush bg-paper px-3 py-2.5 text-xs text-plum focus:border-rose focus:ring-1 focus:ring-rose"

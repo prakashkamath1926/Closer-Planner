@@ -365,6 +365,7 @@ export function PlanView({
 
       {/* Sticky Summary Strip */}
       <section
+        id="sticky-summary-strip"
         data-testid="planner-summary-strip"
         aria-label="Occasion summary and quick actions"
         className="sticky top-0 z-30 border-b border-blush bg-paper/95 backdrop-blur-md shadow-xs transition-shadow"
@@ -721,6 +722,7 @@ export function PlanView({
 
                       {/* Status Selector */}
                       <select
+                        aria-label={`Status for ${item.title}`}
                         value={item.status}
                         onChange={(e) =>
                           handleStatusChange(

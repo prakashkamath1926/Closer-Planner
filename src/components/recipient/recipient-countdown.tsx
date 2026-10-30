@@ -42,10 +42,10 @@ export function RecipientCountdown({ revealAt }: RecipientCountdownProps) {
   return (
     <div className="mt-8 rounded-3xl border border-blush bg-white/80 p-6 shadow-sm backdrop-blur-xs">
       <div className="text-center">
-        <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-widest text-gold uppercase">
-          <Sparkles className="h-3.5 w-3.5 text-gold shrink-0" aria-hidden="true" />
+        <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-widest text-plum uppercase">
+          <Sparkles className="h-3.5 w-3.5 text-rose shrink-0" aria-hidden="true" />
           <span>Countdown to the Big Reveal</span>
-          <Sparkles className="h-3.5 w-3.5 text-gold shrink-0" aria-hidden="true" />
+          <Sparkles className="h-3.5 w-3.5 text-rose shrink-0" aria-hidden="true" />
         </span>
       </div>
 

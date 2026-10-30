@@ -299,8 +299,8 @@ export function InvitationSection({ occasion }: InvitationSectionProps) {
             {headline}
           </h3>
 
-          <div className="my-4 inline-flex items-center gap-1.5 rounded-full bg-peach/40 px-4 py-1 text-xs font-semibold text-rose">
-            <Calendar className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <div className="my-4 inline-flex items-center gap-1.5 rounded-full bg-peach/40 px-4 py-1 text-xs font-semibold text-rose-deep">
+            <Calendar className="h-3.5 w-3.5 text-rose-deep shrink-0" aria-hidden="true" />
             {occasion.event_at ? (
               <ClientDateTime
                 date={occasion.event_at}
