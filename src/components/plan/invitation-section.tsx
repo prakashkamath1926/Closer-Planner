@@ -7,6 +7,7 @@ import { generateInvitationHtml, buildMailtoDraft, PublicInvitationPayload } fro
 import { sanitizeHtml } from "@/lib/engine/sanitizer";
 import { LetterHelperResponse } from "@/lib/ai/schemas";
 import { OccasionRecord } from "./plan-view";
+import { ClientDateTime } from "@/components/client-date-time";
 
 interface InvitationSectionProps {
   occasion: OccasionRecord;
@@ -299,7 +300,16 @@ export function InvitationSection({ occasion }: InvitationSectionProps) {
           </h3>
 
           <div className="my-4 inline-block rounded-full bg-peach/40 px-4 py-1 text-xs font-semibold text-rose">
-            📅 {occasion.event_at ? new Date(occasion.event_at).toLocaleDateString(undefined, { dateStyle: "full" }) : "Date to be announced"}
+            {occasion.event_at ? (
+              <ClientDateTime
+                date={occasion.event_at}
+                options={{ dateStyle: "full" }}
+                prefix="📅 "
+                fallback="📅 Date to be announced"
+              />
+            ) : (
+              "📅 Date to be announced"
+            )}
           </div>
 
           <p className="text-sm leading-relaxed text-mauve sm:text-base">

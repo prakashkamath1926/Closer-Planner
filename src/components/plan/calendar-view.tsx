@@ -6,6 +6,12 @@ import { calculateEventCountdown } from "@/lib/engine/countdown";
 import { generateOccasionIcs } from "@/lib/engine/ics";
 import { generateTonightRunSheet, RunSheetSlot } from "@/lib/engine/run-sheet";
 import { PlanItemRecord, OccasionRecord } from "./plan-view";
+import { ClientDateTime } from "@/components/client-date-time";
+
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
 
 // Managed store that caches the timestamp and updates listeners on a 1-second interval
 let currentNow = Date.now();
@@ -188,7 +194,7 @@ export function CalendarView({ occasion, items }: CalendarViewProps) {
       });
     }
 
-    return { startDayIndex, days, monthName: firstDayOfMonth.toLocaleString("default", { month: "long" }) };
+    return { startDayIndex, days, monthName: MONTH_NAMES[month] || "Month" };
   }, [viewMonthYear, occasion.event_at, items]);
 
   return (
@@ -360,7 +366,11 @@ export function CalendarView({ occasion, items }: CalendarViewProps) {
                 </span>
                 <h4 className="mt-1 font-serif text-base font-bold text-plum">{occasion.title}</h4>
                 <p className="text-xs text-mauve">
-                  📅 {new Date(occasion.event_at).toLocaleString(undefined, { dateStyle: "full", timeStyle: "short" })}
+                  <ClientDateTime
+                    date={occasion.event_at}
+                    options={{ dateStyle: "full", timeStyle: "short" }}
+                    prefix="📅 "
+                  />
                 </p>
               </div>
               <span className="self-start rounded-full bg-peach/50 px-3 py-1 text-xs font-semibold text-plum sm:self-center">
@@ -383,12 +393,15 @@ export function CalendarView({ occasion, items }: CalendarViewProps) {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-xs font-semibold text-plum">
-                      {new Date(t.due_at!).toLocaleString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      <ClientDateTime
+                        date={t.due_at!}
+                        options={{
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        }}
+                      />
                     </span>
                     <span className="text-xs font-medium text-mauve capitalize">({t.category})</span>
                   </div>

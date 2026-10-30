@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { Eye, Key } from "lucide-react";
+import { ClientDateTime } from "@/components/client-date-time";
 
 interface ShareLinkItem {
   id: string;
@@ -454,7 +455,7 @@ export function ShieldCard({ occasionId, eventAt }: ShieldCardProps) {
                     />
                     <span className="font-medium text-plum capitalize">{link.role} link</span>
                     <span className="text-mauve font-mono text-[11px]">
-                      (expires: {new Date(link.expires_at).toLocaleDateString()})
+                      (expires: <ClientDateTime date={link.expires_at} />)
                     </span>
                     {isRevoked && (
                       <span className="rounded-full bg-rose/15 px-2 py-0.5 text-[10px] font-semibold text-roseDeep">
