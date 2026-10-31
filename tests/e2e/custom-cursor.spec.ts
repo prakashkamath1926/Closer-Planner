@@ -69,3 +69,4 @@ test.describe("Custom Cursor (Dot + Lagging Ring)", () => {
     expect(seriousOrCritical).toEqual([]);
   });
 });
+

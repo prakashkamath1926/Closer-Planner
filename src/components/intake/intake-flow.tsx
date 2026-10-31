@@ -12,7 +12,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Check, Mic, MicOff } from "lucide-react";
+import { Check, Mic, MicOff, Info } from "lucide-react";
 import { EntryPath, CelebrationIdea, IntakeRequest, UrgencyMode } from "@/lib/ai/schemas";
 import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
 import { IdeasScreen } from "./ideas-screen";
@@ -60,6 +60,93 @@ export function IntakeFlow() {
       }
     },
   });
+
+  const renderInlineVoiceControls = (isTextarea = false) => {
+    if (!isSpeechSupported) return null;
+    return (
+      <div
+        className={`absolute right-2.5 flex items-center gap-1.5 ${
+          isTextarea ? "top-2.5" : "top-1/2 -translate-y-1/2"
+        }`}
+      >
+        {/* Streamlined Language Toggle */}
+        <button
+          type="button"
+          onClick={() => setSpeechLang(speechLang === "en-US" ? "hi-IN" : "en-US")}
+          aria-label={
+            speechLang === "en-US"
+              ? "EN - English spoken language. Click to toggle to Hindi."
+              : "HI - Hindi spoken language. Click to toggle to English."
+          }
+          title={
+            speechLang === "en-US"
+              ? "EN (English) - Click to switch to Hindi"
+              : "HI (Hindi) - Click to switch to English"
+          }
+          className="rounded px-1.5 py-0.5 text-xs font-semibold text-mauve hover:text-plum hover:bg-blush/40 transition-colors"
+        >
+          {speechLang === "en-US" ? "EN" : "HI"}
+        </button>
+
+        {/* Microphone Button */}
+        <button
+          type="button"
+          onClick={() => {
+            if (speechState === "listening") {
+              stopListening();
+            } else {
+              startListening();
+            }
+          }}
+          aria-pressed={speechState === "listening"}
+          aria-label={speechState === "listening" ? "Stop Voice input" : "Speak it with voice"}
+          title={speechState === "listening" ? "Listening... click to stop (Esc)" : "Speak it with voice"}
+          className={`flex items-center justify-center rounded-full p-1.5 transition-all focus:outline-none focus-visible:ring-1 focus-visible:ring-rose ${
+            speechState === "listening"
+              ? "bg-rose-deep text-white shadow-xs ring-2 ring-rose/40 animate-pulse motion-reduce:animate-none"
+              : "text-mauve hover:text-rose-deep hover:bg-blush/60"
+          }`}
+        >
+          {speechState === "listening" ? (
+            <MicOff className="h-4 w-4" aria-hidden="true" />
+          ) : (
+            <Mic className="h-4 w-4" aria-hidden="true" />
+          )}
+        </button>
+
+        {/* Privacy Info Tooltip */}
+        <div className="group relative flex items-center">
+          <button
+            type="button"
+            aria-label="Speech privacy: Speech is processed by your browser; we only store the text."
+            className="rounded-full p-1 text-mauve/70 hover:text-plum hover:bg-blush/40 focus:outline-none focus-visible:ring-1 focus-visible:ring-rose"
+          >
+            <Info className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+          <div
+            role="tooltip"
+            className="pointer-events-none absolute bottom-full right-0 mb-1.5 hidden w-48 rounded-lg bg-plum px-2.5 py-1.5 text-[11px] font-normal text-cream shadow-md group-hover:block group-focus-within:block z-20 leading-snug"
+          >
+            Speech is processed by your browser; we only store the text.
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderVoiceFeedback = () => {
+    if (!isSpeechSupported || speechState === "idle") return null;
+    return (
+      <div aria-live="polite" className="mt-1 text-xs font-medium">
+        {speechState === "listening" && (
+          <span className="text-rose-deep">Listening... speak clearly (Esc to stop)</span>
+        )}
+        {speechState === "error" && (
+          <span className="text-rose-deep">{speechError}</span>
+        )}
+      </div>
+    );
+  };
 
   const handleEntryPathChange = (path: EntryPath) => {
     setEntryPath(path);
@@ -373,13 +460,17 @@ export function IntakeFlow() {
             <label className="block text-xs font-semibold uppercase tracking-wider text-mauve">
               What is your idea or concept?
             </label>
-            <textarea
-              rows={3}
-              value={concept}
-              onChange={(e) => setConcept(e.target.value)}
-              placeholder="Describe your vision (e.g. Rooftop pottery evening with Italian antipasti and jazz music)"
-              className="mt-1.5 w-full rounded-2xl border border-mauve/20 bg-paper px-4 py-2.5 text-sm text-plum focus:border-rose focus:outline-none"
-            />
+            <div className="relative mt-1.5">
+              <textarea
+                rows={3}
+                value={concept}
+                onChange={(e) => setConcept(e.target.value)}
+                placeholder="Describe your vision (e.g. Rooftop pottery evening with Italian antipasti and jazz music)"
+                className="w-full rounded-2xl border border-mauve/20 bg-paper px-4 py-2.5 pr-28 text-sm text-plum focus:border-rose focus:outline-none"
+              />
+              {renderInlineVoiceControls(true)}
+            </div>
+            {renderVoiceFeedback()}
           </div>
         )}
 
@@ -388,13 +479,17 @@ export function IntakeFlow() {
             <label className="block text-xs font-semibold uppercase tracking-wider text-mauve">
               What are 2&ndash;3 things they love or enjoy?
             </label>
-            <input
-              type="text"
-              value={knownInterests}
-              onChange={(e) => setKnownInterests(e.target.value)}
-              placeholder="e.g. Vinyl records, filter coffee, board games, stargazing"
-              className="mt-1.5 w-full rounded-2xl border border-mauve/20 bg-paper px-4 py-2.5 text-sm text-plum focus:border-rose focus:outline-none"
-            />
+            <div className="relative mt-1.5">
+              <input
+                type="text"
+                value={knownInterests}
+                onChange={(e) => setKnownInterests(e.target.value)}
+                placeholder="e.g. Vinyl records, filter coffee, board games, stargazing"
+                className="w-full rounded-2xl border border-mauve/20 bg-paper px-4 py-2.5 pr-28 text-sm text-plum focus:border-rose focus:outline-none"
+              />
+              {renderInlineVoiceControls(false)}
+            </div>
+            {renderVoiceFeedback()}
           </div>
         )}
 
@@ -403,83 +498,17 @@ export function IntakeFlow() {
             <label className="block text-xs font-semibold uppercase tracking-wider text-mauve">
               Quick prompt: What’s one favorite dish, hobby, or place?
             </label>
-            <input
-              type="text"
-              value={knownInterests}
-              onChange={(e) => setKnownInterests(e.target.value)}
-              placeholder="e.g. Sourdough pizza, quiet dessert parlor, indie acoustic"
-              className="mt-1.5 w-full rounded-2xl border border-mauve/20 bg-paper px-4 py-2.5 text-sm text-plum focus:border-rose focus:outline-none"
-            />
-          </div>
-        )}
-
-        {/* Voice Input (Progressive enhancement: only rendered if Speech API supported) */}
-        {isSpeechSupported && (
-          <div className="rounded-2xl border border-blush/60 bg-sand/30 p-3.5 space-y-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (speechState === "listening") {
-                      stopListening();
-                    } else {
-                      startListening();
-                    }
-                  }}
-                  aria-pressed={speechState === "listening"}
-                  aria-label={speechState === "listening" ? "Stop Voice input" : "Speak it with voice"}
-                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all shadow-2xs ${
-                    speechState === "listening"
-                      ? "bg-rose-deep text-white ring-2 ring-rose/40 animate-pulse motion-reduce:animate-none"
-                      : "bg-white text-rose-deep border border-rose-deep/30 hover:bg-blush"
-                  }`}
-                >
-                  {speechState === "listening" ? (
-                    <>
-                      <MicOff className="h-3.5 w-3.5" aria-hidden="true" />
-                      <span>Listening... (Click or Esc to stop)</span>
-                    </>
-                  ) : (
-                    <>
-                      <Mic className="h-3.5 w-3.5" aria-hidden="true" />
-                      <span>Speak it</span>
-                    </>
-                  )}
-                </button>
-
-                {/* Optional language selector */}
-                <div className="flex items-center gap-1">
-                  <label htmlFor="voice-language-select" className="sr-only">
-                    Spoken language
-                  </label>
-                  <select
-                    id="voice-language-select"
-                    aria-label="Spoken language"
-                    value={speechLang}
-                    onChange={(e) => setSpeechLang(e.target.value)}
-                    className="rounded-lg border border-mauve/20 bg-white px-2 py-1 text-[11px] text-plum focus:ring-1 focus:ring-rose"
-                  >
-                    <option value="en-US">English (US)</option>
-                    <option value="en-IN">English (India)</option>
-                    <option value="hi-IN">Hindi (हिंदी)</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Status announcement */}
-              <div aria-live="polite" className="text-xs font-medium text-mauve">
-                {speechState === "listening" && "Listening... speak clearly"}
-                {speechState === "error" && (
-                  <span className="text-rose-deep">{speechError}</span>
-                )}
-              </div>
+            <div className="relative mt-1.5">
+              <input
+                type="text"
+                value={knownInterests}
+                onChange={(e) => setKnownInterests(e.target.value)}
+                placeholder="e.g. Sourdough pizza, quiet dessert parlor, indie acoustic"
+                className="w-full rounded-2xl border border-mauve/20 bg-paper px-4 py-2.5 pr-28 text-sm text-plum focus:border-rose focus:outline-none"
+              />
+              {renderInlineVoiceControls(false)}
             </div>
-
-            {/* Privacy note */}
-            <p className="text-[11px] text-mauve leading-normal">
-              Voice uses your browser&apos;s speech recognition, which may send audio to your browser provider. We only receive the text.
-            </p>
+            {renderVoiceFeedback()}
           </div>
         )}
 
@@ -618,6 +647,11 @@ export function IntakeFlow() {
             {isSubmitting ? "Generating 3 curated celebration directions..." : "Generate Celebration Ideas"}
           </button>
         </div>
+
+        {/* Global Privacy Footer Note */}
+        <p className="pt-1 text-center text-xs text-mauve">
+          Speech is processed by your browser; we only store the text.
+        </p>
       </div>
     </div>
   );

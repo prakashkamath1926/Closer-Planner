@@ -15,7 +15,7 @@ test.describe("Voice Intake & Speech Recognition Feature", () => {
     await page.waitForSelector("#intake");
     await page.waitForTimeout(500);
 
-    const micButton = page.locator('button:has-text("Speak it")');
+    const micButton = page.locator('button[aria-label="Speak it with voice"]');
     await expect(micButton).toHaveCount(0);
 
     // Text path works normally
@@ -65,6 +65,13 @@ test.describe("Voice Intake & Speech Recognition Feature", () => {
     const micButton = page.locator('button[aria-label="Speak it with voice"]');
     await expect(micButton).toBeVisible();
     await expect(micButton).toHaveAttribute("aria-pressed", "false");
+
+    // Language toggle "EN" is visible and toggles to "HI"
+    const langToggle = page.locator('button[aria-label*="spoken language"]');
+    await expect(langToggle).toBeVisible();
+    await expect(langToggle).toHaveText("EN");
+    await langToggle.click();
+    await expect(langToggle).toHaveText("HI");
 
     // Click to start listening
     await micButton.click();

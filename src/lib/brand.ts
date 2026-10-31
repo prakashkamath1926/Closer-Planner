@@ -3,3 +3,4 @@
  */
 export const APP_NAME = "Closer";
 export const TAGLINE = "Plan something that brings you closer.";
+

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useSyncExternalStore } from "react";
 
 export type SpeechState = "idle" | "listening" | "error";
 
@@ -61,15 +61,18 @@ declare global {
   }
 }
 
+const emptySubscribe = () => () => {};
+
 export function useSpeechRecognition({
   lang: initialLang = "en-US",
   onResult,
   onError,
 }: UseSpeechRecognitionOptions = {}): UseSpeechRecognitionReturn {
-  const [isSupported] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
-  });
+  const isSupported = useSyncExternalStore(
+    emptySubscribe,
+    () => typeof window !== "undefined" && Boolean(window.SpeechRecognition || window.webkitSpeechRecognition),
+    () => false
+  );
   const [state, setState] = useState<SpeechState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lang, setLang] = useState(initialLang);
