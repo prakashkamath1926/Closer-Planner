@@ -72,6 +72,10 @@ describe("Letters from Loved Ones API & Token Separation", () => {
       params: Promise.resolve({ token: contributeToken }),
     });
 
+    if (!res) {
+      throw new Error("Expected recipientRoute to return a Response, but received undefined");
+    }
+
     expect(res.status).toBe(404);
     const json = await res.json();
     expect(json).toEqual({ error: "Not found" });
@@ -119,6 +123,10 @@ describe("Letters from Loved Ones API & Token Separation", () => {
       params: Promise.resolve({ token: viewToken }),
     });
 
+    if (!res) {
+      throw new Error("Expected contributeRoute to return a Response, but received undefined");
+    }
+
     expect(res.status).toBe(404);
   });
 
@@ -137,6 +145,10 @@ describe("Letters from Loved Ones API & Token Separation", () => {
       params: Promise.resolve({ token: contributeToken }),
     });
 
+    if (!res) {
+      throw new Error("Expected contributeRoute to return a Response, but received undefined");
+    }
+
     expect(res.status).toBe(400);
   });
 
@@ -154,6 +166,10 @@ describe("Letters from Loved Ones API & Token Separation", () => {
     const res = await contributeRoute(req, {
       params: Promise.resolve({ token: contributeToken }),
     });
+
+    if (!res) {
+      throw new Error("Expected contributeRoute to return a Response, but received undefined");
+    }
 
     expect(res.status).toBe(400);
   });
@@ -178,6 +194,10 @@ describe("Letters from Loved Ones API & Token Separation", () => {
     const res = await contributeRoute(req, {
       params: Promise.resolve({ token: contributeToken }),
     });
+
+    if (!res) {
+      throw new Error("Expected contributeRoute to return a Response, but received undefined");
+    }
 
     expect(res.status).toBe(429);
     expect(res.headers.get("Retry-After")).toBe("45");
@@ -231,6 +251,10 @@ describe("Letters from Loved Ones API & Token Separation", () => {
     const res = await contributeRoute(req, {
       params: Promise.resolve({ token: contributeToken }),
     });
+
+    if (!res) {
+      throw new Error("Expected contributeRoute to return a Response, but received undefined");
+    }
 
     expect(res.status).toBe(201);
     expect(insertedRow).toEqual({

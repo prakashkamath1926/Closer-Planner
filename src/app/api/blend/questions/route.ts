@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, connection } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { generateBlendQuestions } from "@/lib/ai/orchestrator";
 
@@ -8,6 +8,7 @@ import { generateBlendQuestions } from "@/lib/ai/orchestrator";
  * recipient, intent, and concept.
  */
 export async function GET(req: NextRequest) {
+  await connection();
   try {
     const supabase = await createClient();
     const {

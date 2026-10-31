@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { ContributeForm } from "./contribute-form";
 
 export const metadata: Metadata = {
@@ -19,13 +20,24 @@ interface ContributePageProps {
   params: Promise<{ token: string }>;
 }
 
-export default async function ContributePage({ params }: ContributePageProps) {
+async function ContributeContent({ params }: ContributePageProps) {
   const { token } = await params;
+  return <ContributeForm token={token} />;
+}
 
+export default function ContributePage({ params }: ContributePageProps) {
   return (
     <main className="min-h-screen bg-paper px-4 py-12 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-lg">
-        <ContributeForm token={token} />
+        <Suspense
+          fallback={
+            <div className="py-12 text-center text-xs text-mauve">
+              Loading letter form...
+            </div>
+          }
+        >
+          <ContributeContent params={params} />
+        </Suspense>
       </div>
     </main>
   );

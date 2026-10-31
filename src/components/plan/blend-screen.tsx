@@ -243,12 +243,16 @@ export function BlendScreen({ occasion }: BlendScreenProps) {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => {
-              if (typeof window !== "undefined" && navigator.clipboard) {
-                const shareUrl = `${window.location.origin}/plan/${occasion.id}?tab=blend`;
-                navigator.clipboard.writeText(shareUrl);
-                setCopiedLink(true);
-                setTimeout(() => setCopiedLink(false), 2500);
+            onClick={async () => {
+              if (typeof window !== "undefined" && navigator?.clipboard?.writeText) {
+                try {
+                  const shareUrl = `${window.location.origin}/plan/${occasion.id}?tab=blend`;
+                  await navigator.clipboard.writeText(shareUrl);
+                  setCopiedLink(true);
+                  setTimeout(() => setCopiedLink(false), 2500);
+                } catch {
+                  // Ignore clipboard write rejection
+                }
               }
             }}
             className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-white px-3.5 py-2 text-xs font-semibold text-plum shadow-2xs hover:bg-sand/40"
