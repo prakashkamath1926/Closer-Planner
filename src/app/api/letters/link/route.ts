@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, connection } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { generateRawShareToken, hashShareToken } from "@/lib/engine/shield";
@@ -19,6 +19,7 @@ const revokeContributeLinkSchema = z.object({
  * The raw token is returned ONCE to the organizer.
  */
 export async function POST(req: NextRequest) {
+  await connection();
   try {
     const supabase = await createClient();
     const {
@@ -60,7 +61,11 @@ export async function POST(req: NextRequest) {
     const tokenHash = hashShareToken(rawToken);
     const expiresAt = new Date(Date.now() + expiresInDays * 24 * 3600 * 1000).toISOString();
 
-    const { data: newLink, error: insertError } = await supabase
+    let newLink: { id: string; created_at: string; expires_at: string } | null = null;
+    let insertError: unknown = null;
+
+    // Attempt insert with kind: 'contribute'
+    const primaryInsert = await supabase
       .from("share_links")
       .insert({
         occasion_id: occasionId,
@@ -72,7 +77,45 @@ export async function POST(req: NextRequest) {
       .select("id, created_at, expires_at")
       .single();
 
-    if (insertError) {
+    if (
+      primaryInsert.error &&
+      (primaryInsert.error.code === "PGRST204" ||
+        primaryInsert.error.message?.includes("kind"))
+    ) {
+      // Column 'kind' not yet in remote DB schema cache: fallback to standard share_link with role 'friend'
+      const fallbackInsert = await supabase
+        .from("share_links")
+        .insert({
+          occasion_id: occasionId,
+          role: "friend",
+          token_hash: tokenHash,
+          expires_at: expiresAt,
+        })
+        .select("id, created_at, expires_at")
+        .single();
+
+      if (fallbackInsert.data) {
+        newLink = fallbackInsert.data;
+        // Record contribute link association in agent_runs
+        await supabase.from("agent_runs").insert({
+          occasion_id: occasionId,
+          step: "contribute_link_created",
+          detail: {
+            share_link_id: fallbackInsert.data.id,
+            token_hash: tokenHash,
+          },
+        });
+      } else {
+        insertError = fallbackInsert.error;
+      }
+    } else if (primaryInsert.error) {
+      insertError = primaryInsert.error;
+    } else {
+      newLink = primaryInsert.data;
+    }
+
+    if (insertError || !newLink) {
+      console.error("Failed to insert share link:", insertError);
       return NextResponse.json(
         { error: "Failed to create contribute link" },
         { status: 500 },
@@ -88,7 +131,8 @@ export async function POST(req: NextRequest) {
       },
       { status: 201 },
     );
-  } catch {
+  } catch (err) {
+    console.error("POST /api/letters/link exception:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -98,6 +142,7 @@ export async function POST(req: NextRequest) {
  * Organizer-only: lists active contribute share links for the occasion.
  */
 export async function GET(req: NextRequest) {
+  await connection();
   try {
     const supabase = await createClient();
     const {
@@ -114,16 +159,45 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "occasionId required" }, { status: 400 });
     }
 
-    const { data: links, error: listError } = await supabase
+    const listRes = await supabase
       .from("share_links")
-      .select("id, kind, expires_at, revoked_at, created_at")
+      .select("id, expires_at, revoked_at, created_at")
       .eq("occasion_id", occasionId)
       .eq("kind", "contribute")
       .is("revoked_at", null)
       .gt("expires_at", new Date().toISOString())
       .order("created_at", { ascending: false });
 
-    if (listError) {
+    let links = listRes.data;
+
+    if (
+      listRes.error &&
+      (listRes.error.code === "PGRST204" || listRes.error.message?.includes("kind"))
+    ) {
+      // Query friend links mapped to contribute_link_created
+      const runsRes = await supabase
+        .from("agent_runs")
+        .select("detail")
+        .eq("occasion_id", occasionId)
+        .eq("step", "contribute_link_created");
+
+      const contributeLinkIds = new Set(
+        (runsRes.data || [])
+          .map((r) => (r.detail as Record<string, unknown>)?.share_link_id)
+          .filter(Boolean),
+      );
+
+      const allFriendLinks = await supabase
+        .from("share_links")
+        .select("id, expires_at, revoked_at, created_at")
+        .eq("occasion_id", occasionId)
+        .eq("role", "friend")
+        .is("revoked_at", null)
+        .gt("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: false });
+
+      links = (allFriendLinks.data || []).filter((l) => contributeLinkIds.has(l.id));
+    } else if (listRes.error) {
       return NextResponse.json(
         { error: "Failed to list contribute links" },
         { status: 500 },
@@ -131,7 +205,8 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({ links: links || [] }, { status: 200 });
-  } catch {
+  } catch (err) {
+    console.error("GET /api/letters/link exception:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -164,7 +239,6 @@ export async function DELETE(req: NextRequest) {
       .from("share_links")
       .update({ revoked_at: new Date().toISOString() })
       .eq("occasion_id", occasionId)
-      .eq("kind", "contribute")
       .is("revoked_at", null);
 
     if (shareLinkId) {
@@ -180,7 +254,8 @@ export async function DELETE(req: NextRequest) {
     }
 
     return NextResponse.json({ success: true }, { status: 200 });
-  } catch {
+  } catch (err) {
+    console.error("DELETE /api/letters/link exception:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

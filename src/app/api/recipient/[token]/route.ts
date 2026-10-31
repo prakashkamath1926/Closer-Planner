@@ -109,8 +109,24 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
           ?.select?.("id, contributor_name, body, status, occasion_id")
           ?.eq?.("occasion_id", occasionId)
           ?.eq?.("status", "approved");
-        if (lettersRes?.data) {
+        if (lettersRes?.data && lettersRes.data.length > 0) {
           letters = lettersRes.data;
+        } else {
+          // Fallback to agent_runs
+          const runsRes = await supabaseUser
+            .from("agent_runs")
+            .select("id, occasion_id, detail")
+            .eq("occasion_id", occasionId)
+            .eq("step", "letter_contributed");
+          letters = (runsRes.data || [])
+            .filter((r) => (r.detail as Record<string, unknown>)?.status === "approved")
+            .map((r) => ({
+              id: r.id,
+              occasion_id: r.occasion_id,
+              contributor_name: ((r.detail as Record<string, unknown>)?.contributor_name as string) || null,
+              body: ((r.detail as Record<string, unknown>)?.body as string) || "",
+              status: "approved" as const,
+            }));
         }
       } catch {
         letters = [];
@@ -190,8 +206,24 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         ?.select?.("id, contributor_name, body, status, occasion_id")
         ?.eq?.("occasion_id", link.occasion_id)
         ?.eq?.("status", "approved");
-      if (lettersRes?.data) {
+      if (lettersRes?.data && lettersRes.data.length > 0) {
         letters = lettersRes.data;
+      } else {
+        // Fallback to agent_runs
+        const runsRes = await admin
+          .from("agent_runs")
+          .select("id, occasion_id, detail")
+          .eq("occasion_id", link.occasion_id)
+          .eq("step", "letter_contributed");
+        letters = (runsRes.data || [])
+          .filter((r) => (r.detail as Record<string, unknown>)?.status === "approved")
+          .map((r) => ({
+            id: r.id,
+            occasion_id: r.occasion_id,
+            contributor_name: ((r.detail as Record<string, unknown>)?.contributor_name as string) || null,
+            body: ((r.detail as Record<string, unknown>)?.body as string) || "",
+            status: "approved" as const,
+          }));
       }
     } catch {
       letters = [];

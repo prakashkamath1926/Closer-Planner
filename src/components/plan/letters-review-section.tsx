@@ -79,7 +79,10 @@ export function LettersReviewSection({ occasionId }: LettersReviewSectionProps) 
         body: JSON.stringify({ occasionId, expiresInDays: 30 }),
       });
 
-      if (!res.ok) throw new Error("Failed to create contribute link");
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        throw new Error(errJson?.error || "Failed to create contribute link");
+      }
 
       const data = await res.json();
       const origin = typeof window !== "undefined" ? window.location.origin : "";
@@ -92,8 +95,8 @@ export function LettersReviewSection({ occasionId }: LettersReviewSectionProps) 
         setContributeLinks(kData.links || []);
       }
     } catch (err) {
-      console.error(err);
-      alert("Could not generate contribute link.");
+      console.error("handleGenerateLink error:", err);
+      alert(err instanceof Error ? err.message : "Could not generate contribute link.");
     } finally {
       setGeneratingLink(false);
     }

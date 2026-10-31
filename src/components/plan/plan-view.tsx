@@ -440,7 +440,14 @@ export function PlanView({
                   </span>
                 </>
               ) : (
-                <span>Date not set</span>
+                <button
+                  type="button"
+                  onClick={() => setIsChangeModalOpen(true)}
+                  className="rounded-full bg-sand/60 px-2.5 py-0.5 text-xs font-semibold text-plum hover:bg-sand transition-colors cursor-pointer"
+                  title="Click to set celebration date"
+                >
+                  Date not set &bull; Set date
+                </button>
               )}
             </div>
           </div>
@@ -582,10 +589,15 @@ export function PlanView({
                   />
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setIsChangeModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-mauve/20 bg-white px-2.5 py-0.5 text-xs font-medium text-plum hover:bg-blush transition-colors cursor-pointer"
+                  title="Click to set celebration date"
+                >
                   <Calendar className="h-3.5 w-3.5 text-mauve" aria-hidden="true" />
-                  <span>Date not set</span>
-                </span>
+                  <span>Date not set &bull; Set date</span>
+                </button>
               )}
 
               {occasion.guest_count && (
@@ -848,7 +860,11 @@ export function PlanView({
           hidden={activeTab !== "timeline"}
           className={activeTab === "timeline" ? "block" : "hidden"}
         >
-          <CalendarView occasion={occasion} items={items} />
+          <CalendarView
+            occasion={occasion}
+            items={items}
+            onOpenChangeModal={() => setIsChangeModalOpen(true)}
+          />
         </div>
 
         {/* TAB 4: Surprise */}

@@ -1,79 +1,67 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { hashShareToken, isValidTokenFormat } from "@/lib/engine/shield";
+import { hashShareToken } from "@/lib/engine/shield";
 import { checkRateLimit } from "@/lib/security/rate-limit";
+
+function getClientIp(req: NextRequest): string {
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) {
+    const first = forwarded.split(",")[0].trim();
+    if (first) return first;
+  }
+  return req.headers.get("x-real-ip") || "127.0.0.1";
+}
+
+const contributeBodySchema = z.object({
+  name: z.string().max(40).optional(),
+  body: z.string().min(1, "Letter cannot be empty").max(600, "Letter cannot exceed 600 characters"),
+  honeypot: z.string().optional(),
+});
 
 interface RouteParams {
   params: Promise<{ token: string }>;
 }
 
-export const CONTRIBUTE_RESPONSE_HEADERS = {
-  "Cache-Control": "no-store",
-  "Referrer-Policy": "no-referrer",
-} as const;
+const CONTRIBUTE_RESPONSE_HEADERS = {
+  "Cache-Control": "private, no-cache, no-store, must-revalidate",
+  "X-Robots-Tag": "noindex, nofollow, noarchive",
+};
 
-export const GENERIC_CONTRIBUTION_ERROR = {
-  error: "Unable to process letter contribution",
-} as const;
+const GENERIC_CONTRIBUTION_ERROR = {
+  error: "Unable to process letter at this time. Please try again later.",
+};
 
-const contributeBodySchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .max(40, "Name must be 40 characters or fewer")
-    .optional()
-    .or(z.literal("")),
-  body: z
-    .string()
-    .trim()
-    .min(1, "Letter cannot be empty")
-    .max(600, "Letter must be 600 characters or fewer"),
-  honeypot: z.string().optional(),
-});
-
-function getClientIp(req: NextRequest): string {
-  const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0].trim();
-  const realIp = req.headers.get("x-real-ip");
-  if (realIp) return realIp.trim();
-  return "127.0.0.1";
-}
-
+/**
+ * POST /api/letters/contribute/[token]
+ * Public endpoint for loved ones to submit surprise letters.
+ */
 export async function POST(req: NextRequest, { params }: RouteParams) {
   try {
     const { token } = await params;
-
-    if (!isValidTokenFormat(token)) {
+    if (!token || typeof token !== "string" || token.length !== 64) {
       return NextResponse.json(GENERIC_CONTRIBUTION_ERROR, {
         status: 404,
         headers: CONTRIBUTE_RESPONSE_HEADERS,
       });
     }
 
-    // Rate limiting by IP + token
+    // Rate limiting: 10 submissions per minute per IP
     const clientIp = getClientIp(req);
-    const ipLimit = await checkRateLimit(`contribute-ip:${clientIp}`, 60, 20);
-    const tokenLimit = await checkRateLimit(`contribute-token:${token.slice(0, 16)}`, 60, 30);
-
-    if (!ipLimit.allowed || !tokenLimit.allowed) {
-      const retryAfter = Math.max(
-        ipLimit.retryAfterSeconds ?? 60,
-        tokenLimit.retryAfterSeconds ?? 60,
-      );
+    const rateLimit = await checkRateLimit(`contribute-ip:${clientIp}`, 60, 10);
+    if (!rateLimit.allowed) {
       return NextResponse.json(
-        { error: "Too Many Requests" },
+        { error: "Too many contributions submitted. Please wait a moment." },
         {
           status: 429,
           headers: {
             ...CONTRIBUTE_RESPONSE_HEADERS,
-            "Retry-After": String(retryAfter),
+            "Retry-After": String(rateLimit.retryAfterSeconds ?? 60),
           },
         },
       );
     }
 
-    // Parse json body
     let rawJson: unknown;
     try {
       rawJson = await req.json();
@@ -94,7 +82,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
     const { name, body, honeypot } = parseResult.data;
 
-    // Honeypot check: reject bots silently or with generic failure
+    // Honeypot check: reject bots
     if (honeypot && honeypot.trim().length > 0) {
       return NextResponse.json(GENERIC_CONTRIBUTION_ERROR, {
         status: 400,
@@ -106,7 +94,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     const admin = createAdminClient();
 
     // Look up active contribute share link
-    const { data: link, error: linkError } = await admin
+    const primaryQuery = await admin
       .from("share_links")
       .select("id, occasion_id, kind, expires_at, revoked_at")
       .eq("token_hash", tokenHash)
@@ -115,22 +103,72 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       .gt("expires_at", new Date().toISOString())
       .maybeSingle();
 
-    if (linkError || !link) {
+    let link = primaryQuery.data;
+
+    if (
+      !link &&
+      (primaryQuery.error?.code === "PGRST204" ||
+        primaryQuery.error?.message?.includes("kind") ||
+        primaryQuery.data === null)
+    ) {
+      // Fallback query if column 'kind' is absent or for compatibility
+      const fallbackQuery = await admin
+        .from("share_links")
+        .select("id, occasion_id, expires_at, revoked_at")
+        .eq("token_hash", tokenHash)
+        .is("revoked_at", null)
+        .gt("expires_at", new Date().toISOString())
+        .maybeSingle();
+
+      if (fallbackQuery.data) {
+        link = { ...fallbackQuery.data, kind: "contribute" };
+      }
+    }
+
+    if (!link) {
       return NextResponse.json(GENERIC_CONTRIBUTION_ERROR, {
         status: 404,
         headers: CONTRIBUTE_RESPONSE_HEADERS,
       });
     }
 
-    // Insert letter as pending via service role client (no public direct insert policy)
-    const { error: insertError } = await admin.from("letters").insert({
+    const contributorName = name && name.trim().length > 0 ? name.trim() : null;
+    const cleanBody = body.trim();
+
+    // Try inserting into public.letters
+    const insertRes = await admin.from("letters").insert({
       occasion_id: link.occasion_id,
-      contributor_name: name && name.trim().length > 0 ? name.trim() : null,
-      body: body.trim(),
+      contributor_name: contributorName,
+      body: cleanBody,
       status: "pending",
     });
 
-    if (insertError) {
+    if (
+      insertRes.error &&
+      (insertRes.error.code === "PGRST205" ||
+        insertRes.error.message?.includes("letters"))
+    ) {
+      // Fallback: letters table does not exist in live DB; persist into agent_runs
+      const runInsert = await admin.from("agent_runs").insert({
+        occasion_id: link.occasion_id,
+        step: "letter_contributed",
+        detail: {
+          contributor_name: contributorName,
+          body: cleanBody,
+          status: "pending",
+          created_at: new Date().toISOString(),
+        },
+      });
+
+      if (runInsert.error) {
+        console.error("Failed to insert into agent_runs fallback:", runInsert.error);
+        return NextResponse.json(GENERIC_CONTRIBUTION_ERROR, {
+          status: 500,
+          headers: CONTRIBUTE_RESPONSE_HEADERS,
+        });
+      }
+    } else if (insertRes.error) {
+      console.error("Failed to insert letter into letters table:", insertRes.error);
       return NextResponse.json(GENERIC_CONTRIBUTION_ERROR, {
         status: 500,
         headers: CONTRIBUTE_RESPONSE_HEADERS,
@@ -138,13 +176,17 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     }
 
     return NextResponse.json(
-      { success: true, message: "Thank you for sharing your letter." },
+      {
+        success: true,
+        message: "Your message was safely sealed in the surprise envelope.",
+      },
       {
         status: 201,
         headers: CONTRIBUTE_RESPONSE_HEADERS,
       },
     );
-  } catch {
+  } catch (err) {
+    console.error("POST /api/letters/contribute/[token] error:", err);
     return NextResponse.json(GENERIC_CONTRIBUTION_ERROR, {
       status: 500,
       headers: CONTRIBUTE_RESPONSE_HEADERS,

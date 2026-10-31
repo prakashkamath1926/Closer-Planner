@@ -135,6 +135,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      tradeoffs,
       options: tradeoffs.options,
       affectedItemIds: impact.affectedItemIds,
       infeasibleFlags: impact.infeasibleFlags,

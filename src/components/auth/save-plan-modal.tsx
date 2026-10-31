@@ -111,9 +111,10 @@ export function SavePlanModal({ isOpen, onClose, occasionId, onUpgraded }: SaveP
       role="dialog"
       aria-modal="true"
       aria-labelledby="save-plan-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-plum/40 p-4 backdrop-blur-xs"
+      className="fixed inset-0 z-50 overflow-y-auto bg-plum/40 p-4 backdrop-blur-xs sm:p-6"
     >
-      <div className="relative w-full max-w-md rounded-3xl border border-blush bg-white p-6 shadow-xl sm:p-8">
+      <div className="flex min-h-full items-center justify-center py-6 sm:py-10 text-center">
+        <div className="relative my-auto w-full max-w-md rounded-3xl border border-blush bg-white p-6 text-left shadow-xl sm:p-8">
         <button
           type="button"
           onClick={onClose}
@@ -261,6 +262,7 @@ export function SavePlanModal({ isOpen, onClose, occasionId, onUpgraded }: SaveP
             </form>
           </>
         )}
+      </div>
       </div>
     </div>
   );

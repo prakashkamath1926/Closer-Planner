@@ -56,9 +56,10 @@ function useHasNotificationSupport() {
 interface CalendarViewProps {
   occasion: OccasionRecord;
   items: PlanItemRecord[];
+  onOpenChangeModal?: () => void;
 }
 
-export function CalendarView({ occasion, items }: CalendarViewProps) {
+export function CalendarView({ occasion, items, onOpenChangeModal }: CalendarViewProps) {
   const [activeTab, setActiveTab] = useState<"agenda" | "month" | "runsheet">("agenda");
   const [optInSecretTitle, setOptInSecretTitle] = useState(false);
   const [notificationStatus, setNotificationStatus] = useState<string>("default");
@@ -278,8 +279,22 @@ export function CalendarView({ occasion, items }: CalendarViewProps) {
           )}
         </div>
       ) : (
-        <div className="rounded-3xl border border-dashed border-mauve/20 bg-white p-6 text-center text-sm text-mauve">
-          Target date not set yet. Adjust the plan date to enable the live countdown.
+        <div className="rounded-3xl border border-dashed border-mauve/30 bg-white p-6 text-center">
+          <Calendar className="mx-auto size-7 text-mauve/60 mb-2" aria-hidden="true" />
+          <p className="text-sm font-semibold text-plum">Target date not set yet</p>
+          <p className="text-xs text-mauve mt-1">
+            Set your celebration date to activate the live countdown, month grid, and run sheet.
+          </p>
+          {onOpenChangeModal && (
+            <button
+              type="button"
+              onClick={onOpenChangeModal}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-rose px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-roseDeep transition-colors"
+            >
+              <Calendar className="size-3.5" aria-hidden="true" />
+              <span>Set Celebration Date</span>
+            </button>
+          )}
         </div>
       )}
 
