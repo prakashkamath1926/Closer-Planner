@@ -6,6 +6,7 @@ import {
   isValidTokenFormat,
   buildRecipientPayload,
   GENERIC_NOT_FOUND_RESPONSE,
+  type RecipientLetterItem,
 } from "@/lib/engine/shield";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 
@@ -100,7 +101,26 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         .eq("occasion_id", occasionId)
         .maybeSingle();
 
-      const payload = buildRecipientPayload(recipientView || {}, { isPreview: true });
+      // Load approved letters for preview safely
+      let letters: RecipientLetterItem[] = [];
+      try {
+        const lettersRes = await supabaseUser
+          .from("letters")
+          ?.select?.("id, contributor_name, body, status, occasion_id")
+          ?.eq?.("occasion_id", occasionId)
+          ?.eq?.("status", "approved");
+        if (lettersRes?.data) {
+          letters = lettersRes.data;
+        }
+      } catch {
+        letters = [];
+      }
+
+      const payload = buildRecipientPayload(recipientView || {}, {
+        isPreview: true,
+        letters,
+        occasionId,
+      });
       return NextResponse.json(payload, {
         status: 200,
         headers: RECIPIENT_RESPONSE_HEADERS,
@@ -132,14 +152,14 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     // 1. Look up active recipient link
     const { data: link, error: linkError } = await admin
       .from("share_links")
-      .select("occasion_id, role, expires_at, revoked_at")
+      .select("occasion_id, role, expires_at, revoked_at, kind")
       .eq("token_hash", tokenHash)
       .eq("role", "recipient")
       .is("revoked_at", null)
       .gt("expires_at", new Date().toISOString())
       .maybeSingle();
 
-    if (linkError || !link) {
+    if (linkError || !link || (link.kind && link.kind !== "view")) {
       return NextResponse.json(GENERIC_NOT_FOUND_RESPONSE, {
         status: 404,
         headers: RECIPIENT_RESPONSE_HEADERS,
@@ -162,8 +182,27 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       });
     }
 
+    // Load approved letters for this occasion safely
+    let letters: RecipientLetterItem[] = [];
+    try {
+      const lettersRes = await admin
+        .from("letters")
+        ?.select?.("id, contributor_name, body, status, occasion_id")
+        ?.eq?.("occasion_id", link.occasion_id)
+        ?.eq?.("status", "approved");
+      if (lettersRes?.data) {
+        letters = lettersRes.data;
+      }
+    } catch {
+      letters = [];
+    }
+
     // 3. Build strictly allowlisted response (enforces reveal_at on server)
-    const payload = buildRecipientPayload(viewRow, { isPreview: false });
+    const payload = buildRecipientPayload(viewRow, {
+      isPreview: false,
+      letters,
+      occasionId: link.occasion_id,
+    });
 
     return NextResponse.json(payload, {
       status: 200,

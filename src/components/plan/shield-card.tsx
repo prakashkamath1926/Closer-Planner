@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { Eye, Key, CheckCircle2 } from "lucide-react";
 import { ClientDateTime } from "@/components/client-date-time";
+import { LettersReviewSection } from "./letters-review-section";
 
 interface ShareLinkItem {
   id: string;
@@ -497,6 +498,9 @@ export function ShieldCard({ occasionId, eventAt, onPublishedChange }: ShieldCar
           </div>
         )}
       </div>
+
+      {/* Letters from Loved Ones Review Section */}
+      <LettersReviewSection occasionId={occasionId} />
     </section>
   );
 }

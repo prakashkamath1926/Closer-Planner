@@ -332,6 +332,7 @@ export type Database = {
           id: string;
           occasion_id: string;
           role: "friend" | "recipient";
+          kind: "view" | "contribute";
           token_hash: string;
           expires_at: string;
           revoked_at: string | null;
@@ -341,6 +342,7 @@ export type Database = {
           id?: string;
           occasion_id: string;
           role: "friend" | "recipient";
+          kind?: "view" | "contribute";
           token_hash: string;
           expires_at: string;
           revoked_at?: string | null;
@@ -350,6 +352,34 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "share_links_occasion_id_fkey";
+            columns: ["occasion_id"];
+            referencedRelation: "occasions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+
+      letters: {
+        Row: {
+          id: string;
+          occasion_id: string;
+          contributor_name: string | null;
+          body: string;
+          status: "pending" | "approved" | "rejected";
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          occasion_id: string;
+          contributor_name?: string | null;
+          body: string;
+          status?: "pending" | "approved" | "rejected";
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["letters"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "letters_occasion_id_fkey";
             columns: ["occasion_id"];
             referencedRelation: "occasions";
             referencedColumns: ["id"];

@@ -24,17 +24,51 @@ export interface RecipientViewInput {
   [key: string]: unknown;
 }
 
+export interface RecipientLetterItem {
+  id?: string;
+  contributor_name?: string | null;
+  body: string;
+  status?: string;
+  occasion_id?: string;
+}
+
+export interface RecipientLetter {
+  from: string;
+  body: string;
+}
+
 export interface RecipientPayload {
   headline: string;
   message: string | null;
   reveal_at: string | null;
   show_countdown: boolean;
   is_revealed: boolean;
+  letters?: RecipientLetter[];
 }
 
 export interface BuildRecipientPayloadOptions {
   isPreview?: boolean;
   nowMs?: number;
+  letters?: RecipientLetterItem[];
+  occasionId?: string;
+}
+
+function filterApprovedLetters(
+  letters?: RecipientLetterItem[],
+  expectedOccasionId?: string,
+): RecipientLetter[] {
+  if (!letters || !Array.isArray(letters)) return [];
+  return letters
+    .filter((l) => {
+      if (!l || typeof l.body !== "string" || !l.body.trim()) return false;
+      if (l.status !== "approved") return false;
+      if (expectedOccasionId && l.occasion_id && l.occasion_id !== expectedOccasionId) return false;
+      return true;
+    })
+    .map((l) => ({
+      from: l.contributor_name?.trim() || "Someone who loves you",
+      body: l.body.trim(),
+    }));
 }
 
 /**
@@ -58,7 +92,7 @@ export function buildRecipientPayload(
   const showCountdown = typeof row.show_countdown === "boolean" ? row.show_countdown : true;
 
   if (options.isPreview) {
-    return {
+    const payload: RecipientPayload = {
       headline:
         typeof row.headline === "string" && row.headline.trim().length > 0
           ? row.headline.trim()
@@ -68,22 +102,30 @@ export function buildRecipientPayload(
       show_countdown: showCountdown,
       is_revealed: true,
     };
+    if (options.letters !== undefined) {
+      payload.letters = filterApprovedLetters(options.letters, options.occasionId);
+    }
+    return payload;
   }
 
   // Server-side reveal check
   const isRevealed = revealAt ? nowMs >= new Date(revealAt).getTime() : true;
 
   if (!isRevealed) {
-    return {
+    const payload: RecipientPayload = {
       headline: DEFAULT_RECIPIENT_HEADLINE,
       message: null,
       reveal_at: revealAt,
       show_countdown: showCountdown,
       is_revealed: false,
     };
+    if (options.letters !== undefined) {
+      payload.letters = [];
+    }
+    return payload;
   }
 
-  return {
+  const payload: RecipientPayload = {
     headline:
       typeof row.headline === "string" && row.headline.trim().length > 0
         ? row.headline.trim()
@@ -93,6 +135,10 @@ export function buildRecipientPayload(
     show_countdown: showCountdown,
     is_revealed: true,
   };
+  if (options.letters !== undefined) {
+    payload.letters = filterApprovedLetters(options.letters, options.occasionId);
+  }
+  return payload;
 }
 
 /**

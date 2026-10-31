@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { Heart } from "lucide-react";
 import { APP_NAME } from "@/lib/brand";
 
 import { MobileNav } from "./mobile-nav";
 import { navLinks } from "./nav-links";
+import { AuthStatus } from "./auth-status";
 
 export function Header() {
   return (
@@ -33,6 +35,12 @@ export function Header() {
             ))}
           </ul>
         </nav>
+
+        <div className="hidden md:flex items-center gap-3">
+          <Suspense fallback={null}>
+            <AuthStatus />
+          </Suspense>
+        </div>
 
         <MobileNav links={navLinks} />
       </div>

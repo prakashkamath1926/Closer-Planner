@@ -167,4 +167,101 @@ describe("engine/shield: Surprise Shield & Privacy Engine", () => {
   it("provides immutable generic not found response shape", () => {
     expect(GENERIC_NOT_FOUND_RESPONSE).toEqual({ error: "Not found" });
   });
+
+  describe("Letters from loved ones in buildRecipientPayload", () => {
+    const rawDbRow = {
+      headline: "Surprise Celebration",
+      message: "Here is your plan",
+      reveal_at: "2026-11-20T18:00:00Z",
+      show_countdown: true,
+      published: true,
+    };
+
+    const sampleLetters = [
+      {
+        id: "let-1",
+        occasion_id: "occ-1",
+        contributor_name: "Grandma Rose",
+        body: "So proud of you darling!",
+        status: "approved",
+      },
+      {
+        id: "let-2",
+        occasion_id: "occ-1",
+        contributor_name: "Uncle Bob",
+        body: "Have a blast!",
+        status: "pending", // MUST NOT LEAK
+      },
+      {
+        id: "let-3",
+        occasion_id: "occ-1",
+        contributor_name: "Spam Bot",
+        body: "Buy crypto now",
+        status: "rejected", // MUST NOT LEAK
+      },
+      {
+        id: "let-4",
+        occasion_id: "occ-DIFFERENT",
+        contributor_name: "Stranger",
+        body: "Wrong occasion note",
+        status: "approved", // OTHER OCCASION MUST NOT LEAK
+      },
+    ];
+
+    it("does NOT leak any letters before reveal_at", () => {
+      const beforeReveal = new Date("2026-11-20T17:00:00Z").getTime();
+      const payload = buildRecipientPayload(rawDbRow, {
+        nowMs: beforeReveal,
+        letters: sampleLetters,
+        occasionId: "occ-1",
+      });
+
+      expect(payload.is_revealed).toBe(false);
+      expect(payload.letters).toEqual([]);
+    });
+
+    it("reveals ONLY approved letters for the matching occasion after reveal_at", () => {
+      const afterReveal = new Date("2026-11-20T19:00:00Z").getTime();
+      const payload = buildRecipientPayload(rawDbRow, {
+        nowMs: afterReveal,
+        letters: sampleLetters,
+        occasionId: "occ-1",
+      });
+
+      expect(payload.is_revealed).toBe(true);
+      expect(payload.letters).toHaveLength(1);
+      expect(payload.letters).toEqual([
+        {
+          from: "Grandma Rose",
+          body: "So proud of you darling!",
+        },
+      ]);
+    });
+
+    it("falls back to 'Someone who loves you' when contributor_name is null", () => {
+      const afterReveal = new Date("2026-11-20T19:00:00Z").getTime();
+      const anonymousLetter = [
+        {
+          id: "let-anon",
+          occasion_id: "occ-1",
+          contributor_name: null,
+          body: "A quiet wish from an anonymous friend",
+          status: "approved",
+        },
+      ];
+
+      const payload = buildRecipientPayload(rawDbRow, {
+        nowMs: afterReveal,
+        letters: anonymousLetter,
+        occasionId: "occ-1",
+      });
+
+      expect(payload.letters).toEqual([
+        {
+          from: "Someone who loves you",
+          body: "A quiet wish from an anonymous friend",
+        },
+      ]);
+    });
+  });
 });

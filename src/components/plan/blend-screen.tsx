@@ -226,8 +226,8 @@ export function BlendScreen({ occasion }: BlendScreenProps) {
             <span
               className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                 isAiLoading
-                  ? "bg-rose/20 text-rose-deep animate-pulse"
-                  : "bg-rose/10 text-rose-deep"
+                  ? "bg-plum text-white animate-pulse"
+                  : "bg-peach/40 text-plum"
               }`}
             >
               <Sparkles className="h-3 w-3" aria-hidden="true" />

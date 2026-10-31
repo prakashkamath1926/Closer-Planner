@@ -139,9 +139,20 @@ create table public.share_links (
   id uuid primary key default gen_random_uuid(),
   occasion_id uuid not null references public.occasions(id) on delete cascade,
   role text not null check (role in ('friend','recipient')),
+  kind text not null default 'view' check (kind in ('view','contribute')),
   token_hash text not null unique,           -- store a hash, never the raw token
   expires_at timestamptz not null,
   revoked_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+-- ---------- letters from loved ones ----------
+create table public.letters (
+  id uuid primary key default gen_random_uuid(),
+  occasion_id uuid not null references public.occasions(id) on delete cascade,
+  contributor_name text check (contributor_name is null or char_length(contributor_name) <= 40),
+  body text not null check (char_length(body) between 1 and 600),
+  status text not null default 'pending' check (status in ('pending','approved','rejected')),
   created_at timestamptz not null default now()
 );
 
@@ -232,6 +243,7 @@ alter table public.recipient_view  enable row level security;
 alter table public.blend_sessions  enable row level security;
 alter table public.blend_answers   enable row level security;
 alter table public.share_links     enable row level security;
+alter table public.letters         enable row level security;
 alter table public.agent_runs      enable row level security;
 
 create policy "owner manages occasion" on public.occasions
@@ -269,6 +281,10 @@ create policy "owner blend answers" on public.blend_answers for all
                  where s.id = session_id and o.owner_id = auth.uid()));
 
 create policy "owner share links" on public.share_links for all
+  using (exists (select 1 from public.occasions o where o.id = occasion_id and o.owner_id = auth.uid()))
+  with check (exists (select 1 from public.occasions o where o.id = occasion_id and o.owner_id = auth.uid()));
+
+create policy "owner letters" on public.letters for all
   using (exists (select 1 from public.occasions o where o.id = occasion_id and o.owner_id = auth.uid()))
   with check (exists (select 1 from public.occasions o where o.id = occasion_id and o.owner_id = auth.uid()));
 

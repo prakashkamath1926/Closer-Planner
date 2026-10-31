@@ -39,6 +39,8 @@ import { VendorSection } from "./vendor-section";
 import { CalendarView } from "./calendar-view";
 import { InvitationSection } from "./invitation-section";
 import { BlendScreen } from "./blend-screen";
+import { SavePlanModal } from "@/components/auth/save-plan-modal";
+import { createClient } from "@/lib/supabase/browser";
 import { ClientDateTime } from "@/components/client-date-time";
 import type { ProposeTradeoffsResponse } from "@/lib/ai/schemas";
 
@@ -167,6 +169,21 @@ export function PlanView({
   const [activeFilter, setActiveFilter] = useState<"all" | "active" | "fallbacks" | "done">("all");
   const [isChangeModalOpen, setIsChangeModalOpen] = useState(false);
   const [isVersionDrawerOpen, setIsVersionDrawerOpen] = useState(false);
+  const [isAnonymous, setIsAnonymous] = useState(false);
+  const [isSavePlanOpen, setIsSavePlanOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      const supabase = createClient();
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user && user.is_anonymous) {
+          setIsAnonymous(true);
+        }
+      });
+    } catch {
+      // In tests or mock environments without supabase credentials
+    }
+  }, []);
 
   const [proposedTradeoffs, setProposedTradeoffs] = useState<ProposeTradeoffsResponse | null>(null);
   const [newConstraints, setNewConstraints] = useState<{
@@ -357,6 +374,17 @@ export function PlanView({
           </div>
 
           <div className="flex items-center gap-2">
+            {isAnonymous && (
+              <button
+                type="button"
+                onClick={() => setIsSavePlanOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-full bg-rose/10 px-3 py-1 text-xs font-semibold text-rose hover:bg-rose/20 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-rose transition-colors"
+                title="Save your plan with email or Google to keep your work safe"
+              >
+                <Lock className="h-3 w-3" aria-hidden="true" />
+                <span>Save your plan</span>
+              </button>
+            )}
             <span className="inline-flex items-center rounded-full bg-peach/40 px-2.5 py-0.5 text-xs font-medium text-plum capitalize">
               {currentUrgency.replace("_", " ")}
             </span>
@@ -419,6 +447,18 @@ export function PlanView({
 
           {/* Right: Primary Next Step + Global Action Controls */}
           <div className="flex items-center gap-2">
+            {isAnonymous && (
+              <button
+                type="button"
+                onClick={() => setIsSavePlanOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-full bg-peach/70 px-3 py-1.5 text-xs sm:text-sm font-semibold text-plum hover:bg-peach border border-rose/20 shadow-xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-rose transition-colors"
+                title="Save your plan with email or Google to keep your work safe"
+              >
+                <Lock className="h-3.5 w-3.5 text-rose" aria-hidden="true" />
+                <span>Save plan</span>
+              </button>
+            )}
+
             {/* Primary Next Step Button */}
             <button
               type="button"
@@ -892,6 +932,14 @@ export function PlanView({
         onVersionRestored={() => {
           window.location.reload();
         }}
+      />
+
+      {/* Save Plan Modal (Upgrade anonymous user) */}
+      <SavePlanModal
+        isOpen={isSavePlanOpen}
+        onClose={() => setIsSavePlanOpen(false)}
+        occasionId={occasion.id}
+        onUpgraded={() => setIsAnonymous(false)}
       />
     </div>
   );

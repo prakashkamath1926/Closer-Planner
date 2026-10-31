@@ -383,5 +383,46 @@ describe.skipIf(!RUN)(
       expect(error).toBeTruthy();
       expect(data).toBeNull();
     });
+
+    it("B cannot INSERT a letter with a forged occasion_id pointing at A's occasion", async () => {
+      const { data, error } = await clientB
+        .from("letters")
+        .insert({
+          occasion_id: occasionAId, // forged
+          body: "Forged letter from B",
+        })
+        .select("id");
+      expect(error).toBeTruthy();
+      expect(data).toBeNull();
+    });
+
+    it("B cannot SELECT A's letters", async () => {
+      // Create a letter by A
+      const { data: letterA } = await clientA
+        .from("letters")
+        .insert({
+          occasion_id: occasionAId,
+          contributor_name: "Friend of A",
+          body: "A secret heartwarming message",
+        })
+        .select("id")
+        .single();
+
+      if (letterA) {
+        const { data: bRead } = await clientB
+          .from("letters")
+          .select("id")
+          .eq("id", letterA.id);
+        expect(bRead?.length ?? 0).toBe(0);
+      }
+    });
+
+    it("B cannot SELECT A's share links", async () => {
+      const { data: bLinks } = await clientB
+        .from("share_links")
+        .select("id")
+        .eq("occasion_id", occasionAId);
+      expect(bLinks?.length ?? 0).toBe(0);
+    });
   },
 );

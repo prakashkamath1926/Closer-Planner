@@ -6,6 +6,7 @@ import { Menu, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import type { NavLink } from "./nav-links";
+import { AuthStatus } from "./auth-status";
 
 export function MobileNav({ links }: { links: NavLink[] }) {
   const [open, setOpen] = useState(false);
@@ -57,6 +58,9 @@ export function MobileNav({ links }: { links: NavLink[] }) {
                   </li>
                 ))}
               </ul>
+              <div className="mt-3 border-t border-border pt-3 px-2">
+                <AuthStatus />
+              </div>
             </motion.nav>
           )}
         </AnimatePresence>

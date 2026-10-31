@@ -4,12 +4,15 @@ import { use, useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Lock, Sparkles } from "lucide-react";
 import { RecipientCountdown } from "@/components/recipient/recipient-countdown";
+import { EnvelopeGrid } from "@/components/recipient/envelope-grid";
+import type { RecipientLetter } from "@/lib/engine/shield";
 
 interface RecipientData {
   headline: string;
   message: string | null;
   reveal_at: string | null;
   show_countdown: boolean;
+  letters?: RecipientLetter[];
 }
 
 interface PageProps {
@@ -194,6 +197,11 @@ function RecipientContent({ params }: PageProps) {
           <div className="mt-8">
             <RecipientCountdown revealAt={data.reveal_at} />
           </div>
+        )}
+
+        {/* Letters from Loved Ones Envelopes */}
+        {data.letters && data.letters.length > 0 && (
+          <EnvelopeGrid letters={data.letters} />
         )}
 
         {/* Footer */}

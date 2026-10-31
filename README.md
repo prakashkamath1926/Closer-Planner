@@ -41,6 +41,17 @@ See `.env.example`. `SUPABASE_SERVICE_ROLE_KEY` and `GOOGLE_GENERATIVE_AI_API_KE
 
 `schema.sql` is the source of truth for tables, constraints, RLS policies, and rate limiting. Run it in the Supabase SQL editor and enable anonymous sign-ins (Authentication settings). `tests/db/schema.test.ts` runs the same file on PGlite to check integrity rules and privileges.
 
+## Authentication (Supabase Auth)
+
+Authentication uses `@supabase/ssr` with sessions refreshed in Next.js 16's `src/proxy.ts`. Server components read user identity via `supabase.auth.getUser()`.
+
+### Required Supabase Dashboard Steps:
+1. **Anonymous Sign-Ins**: Enable in **Authentication > Sign In / Up > Anonymous Sign-Ins**. This allows zero-friction initial plan generation.
+2. **Email Provider**: Enable in **Authentication > Providers > Email**.
+3. **Google OAuth**: Enable in **Authentication > Providers > Google**, adding `${origin}/auth/callback` to Authorized Redirect URIs in Google Cloud Console and Supabase.
+4. **URL Configuration**: In **Authentication > URL Configuration**, set Site URL (`http://localhost:3000` or production URL) and add `http://localhost:3000/**` to Redirect URLs.
+5. **Plan Upgrading**: Users with anonymous sessions can upgrade their existing plan via the "Save your plan" flow (`updateUser` for email/password or `linkIdentity` for Google), keeping the exact same `auth.uid()` and preserved relational records.
+
 ## Fonts
 
 Fraunces, DM Sans, and Caveat are self-hosted in `src/fonts/` under the SIL Open Font License (licences alongside).

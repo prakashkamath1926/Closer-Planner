@@ -309,3 +309,185 @@ describe("rate_limit_hit privileges", () => {
     }
   });
 });
+
+describe("schema: letters and share_links.kind", () => {
+  it("validates share_links kind constraint ('view' | 'contribute')", async () => {
+    const occasionId = await createOccasion("Kind test occasion");
+    const tokenHash = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
+    // Valid default 'view'
+    const viewRes = await db.query<{ kind: string }>(
+      `insert into public.share_links (occasion_id, role, token_hash, expires_at)
+       values ($1, 'recipient', $2, now() + interval '1 day') returning kind`,
+      [occasionId, tokenHash],
+    );
+    expect(viewRes.rows[0].kind).toBe("view");
+
+    // Valid 'contribute'
+    const tokenHash2 = "1123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    const contribRes = await db.query<{ kind: string }>(
+      `insert into public.share_links (occasion_id, role, kind, token_hash, expires_at)
+       values ($1, 'friend', 'contribute', $2, now() + interval '1 day') returning kind`,
+      [occasionId, tokenHash2],
+    );
+    expect(contribRes.rows[0].kind).toBe("contribute");
+
+    // Invalid kind rejected
+    const tokenHash3 = "2123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    await expect(
+      db.query(
+        `insert into public.share_links (occasion_id, role, kind, token_hash, expires_at)
+         values ($1, 'friend', 'invalid_kind', $2, now() + interval '1 day')`,
+        [occasionId, tokenHash3],
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("validates letters body length constraint (between 1 and 600 characters)", async () => {
+    const occasionId = await createOccasion("Letter length occasion");
+
+    // Valid letter
+    const valid = await db.query<{ id: string }>(
+      `insert into public.letters (occasion_id, contributor_name, body)
+       values ($1, 'Aunt May', 'You bring so much joy to our family!') returning id`,
+      [occasionId],
+    );
+    expect(valid.rows[0].id).toBeDefined();
+
+    // Empty body rejected
+    await expect(
+      db.query(
+        `insert into public.letters (occasion_id, contributor_name, body)
+         values ($1, 'Aunt May', '')`,
+        [occasionId],
+      ),
+    ).rejects.toThrow();
+
+    // 601 characters body rejected
+    const tooLong = "a".repeat(601);
+    await expect(
+      db.query(
+        `insert into public.letters (occasion_id, contributor_name, body)
+         values ($1, 'Aunt May', $2)`,
+        [occasionId, tooLong],
+      ),
+    ).rejects.toThrow();
+
+    // 600 characters accepted
+    const maxLen = "b".repeat(600);
+    const maxRes = await db.query<{ id: string }>(
+      `insert into public.letters (occasion_id, contributor_name, body)
+       values ($1, 'Aunt May', $2) returning id`,
+      [occasionId, maxLen],
+    );
+    expect(maxRes.rows[0].id).toBeDefined();
+  });
+
+  it("validates contributor_name constraint (<= 40 characters or null)", async () => {
+    const occasionId = await createOccasion("Letter name occasion");
+
+    // Null contributor_name is allowed
+    const nullName = await db.query<{ id: string }>(
+      `insert into public.letters (occasion_id, contributor_name, body)
+       values ($1, null, 'A lovely note') returning id`,
+      [occasionId],
+    );
+    expect(nullName.rows[0].id).toBeDefined();
+
+    // 41 chars rejected
+    const name41 = "x".repeat(41);
+    await expect(
+      db.query(
+        `insert into public.letters (occasion_id, contributor_name, body)
+         values ($1, $2, 'A lovely note')`,
+        [occasionId, name41],
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("validates letter status constraint ('pending' | 'approved' | 'rejected')", async () => {
+    const occasionId = await createOccasion("Letter status occasion");
+
+    // Default status is 'pending'
+    const pending = await db.query<{ status: string }>(
+      `insert into public.letters (occasion_id, body)
+       values ($1, 'Default status note') returning status`,
+      [occasionId],
+    );
+    expect(pending.rows[0].status).toBe("pending");
+
+    // Status 'approved' and 'rejected' allowed
+    const approved = await db.query<{ status: string }>(
+      `insert into public.letters (occasion_id, body, status)
+       values ($1, 'Approved note', 'approved') returning status`,
+      [occasionId],
+    );
+    expect(approved.rows[0].status).toBe("approved");
+
+    // Invalid status rejected
+    await expect(
+      db.query(
+        `insert into public.letters (occasion_id, body, status)
+         values ($1, 'Invalid status note', 'published')`,
+        [occasionId],
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("enforces owner-only RLS on letters and share_links", async () => {
+    const USER_B = "22222222-2222-2222-2222-222222222222";
+    await db.query(`insert into auth.users (id) values ($1)`, [USER_B]);
+
+    // User A creates occasion, letter, share_link
+    await db.exec(`set role authenticated; set request.jwt.claim.sub = '${USER_A}';`);
+    const occRes = await db.query<{ id: string }>(
+      `insert into public.occasions (owner_id, title) values ('${USER_A}', 'A private occasion') returning id`,
+    );
+    const occId = occRes.rows[0].id;
+
+    const letterRes = await db.query<{ id: string }>(
+      `insert into public.letters (occasion_id, contributor_name, body)
+       values ($1, 'Friend One', 'Secret message for A') returning id`,
+      [occId],
+    );
+    const letterId = letterRes.rows[0].id;
+
+    const linkRes = await db.query<{ id: string }>(
+      `insert into public.share_links (occasion_id, role, kind, token_hash, expires_at)
+       values ($1, 'recipient', 'view', 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789', now() + interval '1 day') returning id`,
+      [occId],
+    );
+    const linkId = linkRes.rows[0].id;
+
+    // User A can see their own
+    const aLetters = await db.query(`select * from public.letters where id = $1`, [letterId]);
+    expect(aLetters.rows.length).toBe(1);
+
+    // Switch to User B (different authenticated user)
+    await db.exec(`set role authenticated; set request.jwt.claim.sub = '${USER_B}';`);
+
+    // User B cannot SELECT A's letters or share_links
+    const bLetters = await db.query(`select * from public.letters where id = $1`, [letterId]);
+    expect(bLetters.rows.length).toBe(0);
+
+    const bLinks = await db.query(`select * from public.share_links where id = $1`, [linkId]);
+    expect(bLinks.rows.length).toBe(0);
+
+    // User B cannot UPDATE A's letter
+    await db.query(`update public.letters set body = 'Hacked' where id = $1`, [letterId]);
+    // Check with User A that body was not modified
+    await db.exec(`set role authenticated; set request.jwt.claim.sub = '${USER_A}';`);
+    const afterUpdate = await db.query<{ body: string }>(`select body from public.letters where id = $1`, [letterId]);
+    expect(afterUpdate.rows[0].body).toBe("Secret message for A");
+
+    // Switch to anon role
+    await db.exec(`set role anon; reset request.jwt.claim.sub;`);
+    const anonLetters = await db.query(`select * from public.letters where id = $1`, [letterId]);
+    expect(anonLetters.rows.length).toBe(0);
+
+    const anonLinks = await db.query(`select * from public.share_links where id = $1`, [linkId]);
+    expect(anonLinks.rows.length).toBe(0);
+
+    await db.exec(`reset role;`);
+  });
+});
