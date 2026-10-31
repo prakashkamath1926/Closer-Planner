@@ -39,6 +39,25 @@ export interface ByokConfig {
   model?: string;
 }
 
+export function extractByokFromHeaders(headers: Headers): ByokConfig | null {
+  try {
+    const provider = headers.get("x-byok-provider")?.toLowerCase().trim();
+    const apiKey = headers.get("x-byok-key")?.trim();
+    const model = headers.get("x-byok-model")?.trim();
+
+    if ((provider === "groq" || provider === "google") && apiKey && apiKey.length > 0) {
+      return {
+        provider,
+        apiKey,
+        model: model || undefined,
+      };
+    }
+  } catch {
+    // Ignore
+  }
+  return null;
+}
+
 export interface ExecuteChainOptions<T> {
   toolName: string;
   schema: z.ZodSchema<T>;
@@ -215,10 +234,14 @@ export function defaultModelResolver(
 
     if (entry.provider === "compat") {
       if (!isCompatConfigured(env)) return null;
+      const baseURL = env.COMPAT_BASE_URL || (env.XKIRO_API_KEY ? "https://api.xkiro.com/v1" : undefined);
+      const apiKey = env.COMPAT_API_KEY || env.XKIRO_API_KEY;
+      const name = env.COMPAT_LABEL || "xKiro";
+      if (!baseURL || !apiKey) return null;
       const compat = createOpenAICompatible({
-        name: env.COMPAT_LABEL!,
-        baseURL: env.COMPAT_BASE_URL!,
-        apiKey: env.COMPAT_API_KEY!,
+        name,
+        baseURL,
+        apiKey,
       });
       return compat(entry.model);
     }

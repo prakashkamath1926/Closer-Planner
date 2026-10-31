@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { connection } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { Calendar, ArrowRight, Heart, Sparkles, Plus } from "lucide-react";
 import { ClientDateTime } from "@/components/client-date-time";
@@ -10,6 +11,7 @@ export const metadata = {
 };
 
 async function PlansList() {
+  await connection();
   const supabase = await createClient();
   const {
     data: { user },

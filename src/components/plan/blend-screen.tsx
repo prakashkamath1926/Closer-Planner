@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Users, HeartHandshake, CheckCircle2, Info, Sparkles, Save, Share2, Check } from "lucide-react";
 import { BlendQuestion, calculateBlendScore, AnswerEntry, BlendScoreResult } from "@/lib/engine/blend";
+import { getByokHeaders } from "@/lib/ai/byok-client";
 import { OccasionRecord } from "./plan-view";
 
 interface BlendScreenProps {
@@ -114,7 +115,10 @@ export function BlendScreen({ occasion }: BlendScreenProps) {
         if (!data?.questions || !Array.isArray(data.questions) || data.questions.length < 3) {
           res = await fetch("/api/blend/questions", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              ...getByokHeaders(),
+            },
             body: JSON.stringify({
               concept: occasion.title,
               recipientName: occasion.recipient_name,

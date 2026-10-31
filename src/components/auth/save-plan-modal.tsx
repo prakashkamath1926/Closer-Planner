@@ -122,9 +122,10 @@ export function SavePlanModal({ isOpen, onClose, occasionId, onUpgraded }: SaveP
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-plum/50 backdrop-blur-xs"
+      className="fixed inset-0 z-50 overflow-y-auto bg-plum/50 backdrop-blur-xs p-4 sm:p-6"
     >
-      <div className="relative w-full max-w-md max-h-[92vh] overflow-y-auto rounded-3xl border border-blush bg-white p-6 sm:p-8 text-left shadow-2xl">
+      <div className="flex min-h-full items-start justify-center">
+        <div className="relative my-auto w-full max-w-md rounded-3xl border border-blush bg-white p-6 sm:p-8 text-left shadow-2xl">
         <button
           type="button"
           onClick={onClose}
@@ -283,6 +284,7 @@ export function SavePlanModal({ isOpen, onClose, occasionId, onUpgraded }: SaveP
             </form>
           </>
         )}
+      </div>
       </div>
     </div>,
     document.body,

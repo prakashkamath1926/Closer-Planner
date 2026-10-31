@@ -937,6 +937,7 @@ export async function generateInvitationCopy(
     };
   }
 
+
   try {
     return invitationCopySchema.parse({
       headline: result.output.headline.slice(0, 120),
@@ -1009,6 +1010,7 @@ export async function getLetterHelper(
       model: result.model,
     };
   }
+
 
   try {
     return letterHelperResponseSchema.parse({

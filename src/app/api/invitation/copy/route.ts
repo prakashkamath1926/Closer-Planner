@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { checkRateLimit, createRateLimitResponse } from "@/lib/security/rate-limit";
 import { generateInvitationCopy } from "@/lib/ai/orchestrator";
+import { extractByokFromHeaders } from "@/lib/ai/router";
 
 const invitationCopyRequestSchema = z.object({
   recipientName: z.string().min(1).max(100),
@@ -41,7 +42,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const copy = await generateInvitationCopy(parsed.data);
+    const byok = extractByokFromHeaders(req.headers);
+    const copy = await generateInvitationCopy(parsed.data, { byok });
 
     return NextResponse.json({
       success: true,

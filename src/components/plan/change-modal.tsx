@@ -3,6 +3,7 @@
 import React, { useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { X, Calendar, Sparkles } from "lucide-react";
+import { getByokHeaders } from "@/lib/ai/byok-client";
 import type { ProposeTradeoffsResponse } from "@/lib/ai/schemas";
 
 const emptySubscribe = () => () => {};
@@ -110,7 +111,10 @@ export function ChangeModal({
     try {
       const res = await fetch("/api/changes/propose", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getByokHeaders(),
+        },
         body: JSON.stringify({
           occasionId,
           newBudgetTotal: newBudget,
@@ -151,9 +155,10 @@ export function ChangeModal({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-plum/50 backdrop-blur-xs"
+      className="fixed inset-0 z-50 overflow-y-auto bg-plum/50 backdrop-blur-xs p-4 sm:p-6"
     >
-      <div className="relative w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-3xl border border-blush bg-paper p-6 sm:p-8 text-left shadow-2xl">
+      <div className="flex min-h-full items-start justify-center">
+        <div className="relative my-auto w-full max-w-lg rounded-3xl border border-blush bg-paper p-6 sm:p-8 text-left shadow-2xl">
           <div className="flex items-center justify-between border-b border-blush pb-4">
             <div className="flex items-center gap-2">
               <div className="grid size-9 place-items-center rounded-full bg-blush text-plum">
@@ -280,7 +285,8 @@ export function ChangeModal({
             </div>
           </form>
         </div>
-      </div>,
-      document.body,
-    );
+      </div>
+    </div>,
+    document.body,
+  );
   }

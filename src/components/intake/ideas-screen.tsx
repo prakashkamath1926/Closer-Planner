@@ -11,9 +11,10 @@
  */
 
 import { useState } from "react";
-import { AlertTriangle, Edit2 } from "lucide-react";
+import { AlertTriangle, Edit2, RefreshCw } from "lucide-react";
 import { CelebrationIdea, EntryPath } from "@/lib/ai/schemas";
 import { formatMoney, toMinorUnits } from "@/lib/engine/money";
+import { openAiSettingsDialog } from "@/lib/ai/byok-client";
 
 interface IdeasScreenProps {
   ideas: CelebrationIdea[];
@@ -65,11 +66,31 @@ export function IdeasScreen({
       <div className="mb-8 text-center">
         {source === "fallback" && (
           <div
+            data-testid="ai-fallback-notice"
             role="status"
-            className="mb-4 inline-flex items-center gap-2 rounded-full border border-blush bg-blush/80 px-4 py-1.5 text-xs font-semibold text-roseDeep shadow-xs"
+            className="mb-6 inline-flex flex-wrap items-center justify-center gap-3 rounded-2xl border border-blush bg-blush/90 px-4 py-2 text-xs font-medium text-plum shadow-xs"
           >
-            <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
-            <span>AI is unavailable, showing starter templates</span>
+            <div className="flex items-center gap-1.5 text-roseDeep">
+              <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
+              <span className="font-semibold">AI is unavailable, showing starter templates</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onRegenerate}
+                className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-plum shadow-2xs hover:bg-paper transition-colors"
+              >
+                <RefreshCw className="size-3 text-rose" aria-hidden="true" />
+                <span>Retry</span>
+              </button>
+              <button
+                type="button"
+                onClick={openAiSettingsDialog}
+                className="inline-flex items-center gap-1 rounded-full border border-mauve/20 bg-white px-2.5 py-1 text-[11px] font-semibold text-plum shadow-2xs hover:bg-blush transition-colors"
+              >
+                <span>AI settings</span>
+              </button>
+            </div>
           </div>
         )}
         <div>

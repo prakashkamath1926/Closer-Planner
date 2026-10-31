@@ -13,6 +13,7 @@ import { createClient } from "@/lib/supabase/server";
 import { checkRateLimit, createRateLimitResponse } from "@/lib/security/rate-limit";
 import { analyzeChangeImpact, PlanItem } from "@/lib/engine/changes";
 import { proposeTradeoffs } from "@/lib/ai/orchestrator";
+import { extractByokFromHeaders } from "@/lib/ai/router";
 
 const proposeChangesRequestSchema = z.object({
   occasionId: z.string().uuid(),
@@ -118,6 +119,7 @@ export async function POST(req: NextRequest) {
         isNonNegotiable: i.is_non_negotiable,
       }));
 
+    const byok = extractByokFromHeaders(req.headers);
     // Call orchestrator (which drops any options failing engine budget or dependency checks)
     const tradeoffs = await proposeTradeoffs(
       {
@@ -131,6 +133,7 @@ export async function POST(req: NextRequest) {
         reason,
       },
       planItems,
+      { byok },
     );
 
     return NextResponse.json({

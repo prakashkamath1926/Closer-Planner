@@ -13,6 +13,7 @@ import { createClient } from "@/lib/supabase/server";
 import { checkRateLimit, createRateLimitResponse } from "@/lib/security/rate-limit";
 import { intakeRequestSchema } from "@/lib/ai/schemas";
 import { proposeIdeas } from "@/lib/ai/orchestrator";
+import { extractByokFromHeaders } from "@/lib/ai/router";
 
 export async function POST(req: NextRequest) {
   try {
@@ -44,7 +45,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const ideasResponse = await proposeIdeas(parseResult.data);
+    const byok = extractByokFromHeaders(req.headers);
+    const ideasResponse = await proposeIdeas(parseResult.data, { byok });
 
     return NextResponse.json({
       success: true,

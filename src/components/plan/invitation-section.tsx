@@ -8,6 +8,7 @@ import { sanitizeHtml } from "@/lib/engine/sanitizer";
 import { LetterHelperResponse } from "@/lib/ai/schemas";
 import { OccasionRecord } from "./plan-view";
 import { ClientDateTime } from "@/components/client-date-time";
+import { getByokHeaders } from "@/lib/ai/byok-client";
 
 interface InvitationSectionProps {
   occasion: OccasionRecord;
@@ -55,7 +56,10 @@ export function InvitationSection({ occasion }: InvitationSectionProps) {
     try {
       const res = await fetch("/api/invitation/copy", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getByokHeaders(),
+        },
         body: JSON.stringify({
           recipientName: occasion.recipient_name || "our guest of honor",
           occasionType: occasion.urgency_mode || "Celebration",
@@ -87,7 +91,10 @@ export function InvitationSection({ occasion }: InvitationSectionProps) {
     try {
       const res = await fetch("/api/invitation/letter", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getByokHeaders(),
+        },
         body: JSON.stringify({
           recipientName: occasion.recipient_name || "our guest of honor",
           occasionType: occasion.urgency_mode || "Celebration",

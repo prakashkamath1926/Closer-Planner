@@ -706,9 +706,6 @@ export function IntakeFlow() {
           >
             {isSubmitting ? "Generating 3 curated celebration directions..." : "Generate Celebration Ideas"}
           </button>
-          <p className="mt-2.5 text-center text-xs text-mauve">
-            Speech is processed by your browser; we only store the text.
-          </p>
         </div>
       </div>
     </div>

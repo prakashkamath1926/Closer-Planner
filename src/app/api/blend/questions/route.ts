@@ -2,6 +2,7 @@ import { NextRequest, NextResponse, connection } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateBlendQuestions } from "@/lib/ai/orchestrator";
+import { extractByokFromHeaders } from "@/lib/ai/router";
 
 /**
  * GET /api/blend/questions?occasionId=...
@@ -65,14 +66,18 @@ export async function GET(req: NextRequest) {
 
     const knownInterests = (facts || []).map((f) => f.fact_value);
 
-    const questions = await generateBlendQuestions({
-      occasionType: occasion.occasion_type || occasion.title || "Celebration",
-      recipientName: occasion.recipient_name || undefined,
-      intentSummary: occasion.intent_summary || undefined,
-      concept: occasion.title || undefined,
-      knownInterests: knownInterests.length > 0 ? knownInterests : undefined,
-      guestCount: occasion.guest_count || undefined,
-    });
+    const byok = extractByokFromHeaders(req.headers);
+    const questions = await generateBlendQuestions(
+      {
+        occasionType: occasion.occasion_type || occasion.title || "Celebration",
+        recipientName: occasion.recipient_name || undefined,
+        intentSummary: occasion.intent_summary || undefined,
+        concept: occasion.title || undefined,
+        knownInterests: knownInterests.length > 0 ? knownInterests : undefined,
+        guestCount: occasion.guest_count || undefined,
+      },
+      { byok },
+    );
 
     return NextResponse.json({ questions });
   } catch (err: unknown) {
@@ -91,14 +96,18 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { occasionType, recipientName, intentSummary, concept, knownInterests, guestCount } = body;
 
-    const questions = await generateBlendQuestions({
-      occasionType: occasionType || "Celebration",
-      recipientName: recipientName || undefined,
-      intentSummary: intentSummary || undefined,
-      concept: concept || undefined,
-      knownInterests: Array.isArray(knownInterests) ? knownInterests : undefined,
-      guestCount: guestCount ? Number(guestCount) : undefined,
-    });
+    const byok = extractByokFromHeaders(req.headers);
+    const questions = await generateBlendQuestions(
+      {
+        occasionType: occasionType || "Celebration",
+        recipientName: recipientName || undefined,
+        intentSummary: intentSummary || undefined,
+        concept: concept || undefined,
+        knownInterests: Array.isArray(knownInterests) ? knownInterests : undefined,
+        guestCount: guestCount ? Number(guestCount) : undefined,
+      },
+      { byok },
+    );
 
     return NextResponse.json({ questions });
   } catch (err: unknown) {

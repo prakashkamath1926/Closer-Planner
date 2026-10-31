@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Json } from "@/lib/supabase/database.types";
 import { checkRateLimit, createRateLimitResponse } from "@/lib/security/rate-limit";
 import { parseQuote } from "@/lib/ai/orchestrator";
+import { extractByokFromHeaders } from "@/lib/ai/router";
 
 const parseQuoteRequestSchema = z.object({
   vendorId: z.string().uuid(),
@@ -64,8 +65,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Vendor not found" }, { status: 404 });
     }
 
+    const byok = extractByokFromHeaders(req.headers);
     // Run AI parseQuote with strict prompt injection defenses
-    const parseResult = await parseQuote(pastedText, category, currency);
+    const parseResult = await parseQuote(pastedText, category, currency, { byok });
 
     // Update vendor quote fields in database without altering vendor status
     const { error: updateError } = await supabase

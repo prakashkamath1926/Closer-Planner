@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { X, Sparkles, AlertTriangle, CheckCircle2, ShieldCheck, Info } from "lucide-react";
+import { getByokHeaders } from "@/lib/ai/byok-client";
 import { ParsedQuoteFields } from "@/lib/engine/vendors";
 import { formatMoney } from "@/lib/engine/money";
 
@@ -54,7 +55,10 @@ export function QuoteParseModal({
 
       const res = await fetch("/api/vendors/quote", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getByokHeaders(),
+        },
         body: JSON.stringify({
           vendorId,
           occasionId,

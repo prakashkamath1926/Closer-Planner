@@ -61,7 +61,11 @@ export function isCompatConfigured(env: {
   COMPAT_BASE_URL?: string;
   COMPAT_API_KEY?: string;
   COMPAT_LABEL?: string;
+  XKIRO_API_KEY?: string;
 }): boolean {
+  if (env.XKIRO_API_KEY && env.XKIRO_API_KEY.length > 0) {
+    return true;
+  }
   return Boolean(
     env.COMPAT_BASE_URL &&
     env.COMPAT_BASE_URL.startsWith("https://") &&
@@ -123,6 +127,7 @@ const aiEnvSchema = z
       .optional(),
     COMPAT_API_KEY: z.string().min(1).optional(),
     COMPAT_LABEL: z.string().min(1).optional(),
+    XKIRO_API_KEY: z.string().min(1).optional(),
     AI_MODEL_CHAIN: z
       .string()
       .min(1)
@@ -151,6 +156,7 @@ export function getAiEnv(): AiEnv {
     COMPAT_BASE_URL: process.env.COMPAT_BASE_URL,
     COMPAT_API_KEY: process.env.COMPAT_API_KEY,
     COMPAT_LABEL: process.env.COMPAT_LABEL,
+    XKIRO_API_KEY: process.env.XKIRO_API_KEY,
     AI_MODEL_CHAIN: process.env.AI_MODEL_CHAIN || DEFAULT_AI_MODEL_CHAIN,
     AI_MODEL: process.env.AI_MODEL || DEFAULT_AI_MODEL,
   });
