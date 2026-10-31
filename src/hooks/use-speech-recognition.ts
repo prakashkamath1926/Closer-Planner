@@ -130,6 +130,7 @@ export function useSpeechRecognition({
         setErrorMessage(null);
       };
 
+      let pendingInterim = "";
       recognition.onresult = (event: SpeechRecognitionEvent) => {
         let interimText = "";
         let finalText = "";
@@ -144,9 +145,16 @@ export function useSpeechRecognition({
           }
         }
 
-        const combined = finalText || interimText;
-        if (combined && onResultRef.current) {
-          onResultRef.current(combined, Boolean(finalText));
+        if (finalText) {
+          pendingInterim = "";
+          if (onResultRef.current) {
+            onResultRef.current(finalText.trim(), true);
+          }
+        } else if (interimText) {
+          pendingInterim = interimText.trim();
+          if (onResultRef.current) {
+            onResultRef.current(interimText.trim(), false);
+          }
         }
       };
 
@@ -171,6 +179,10 @@ export function useSpeechRecognition({
       };
 
       recognition.onend = () => {
+        if (pendingInterim && onResultRef.current) {
+          onResultRef.current(pendingInterim, true);
+          pendingInterim = "";
+        }
         setState((current) => (current === "listening" ? "idle" : current));
       };
 

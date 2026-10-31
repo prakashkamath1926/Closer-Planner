@@ -37,6 +37,8 @@ import {
   LetterHelperResponse,
   letterHelperResponseSchema,
   aiLetterHelperResponseSchema,
+  blendQuestionsResponseSchema,
+  aiBlendQuestionsResponseSchema,
   UrgencyMode,
   FactStatus,
   FactSource,
@@ -60,6 +62,11 @@ import {
   buildLetterHelperPrompt,
   LetterHelperPromptInput,
 } from "./prompts/invitation";
+import {
+  BlendQuestionsPromptInput,
+  buildBlendQuestionsPrompt,
+} from "./prompts/blend-questions";
+import { BlendQuestion } from "@/lib/engine/blend";
 import { isOverBudget } from "@/lib/engine/budget";
 import { validateDependencyGraph } from "@/lib/engine/timeline";
 import { PlanItem } from "@/lib/engine/changes";
@@ -962,6 +969,136 @@ export async function getLetterHelper(
   }
 
   return createDeterministicFallbackLetterHelper(input);
+}
+
+export const BLEND_QUESTIONS_SYSTEM_PROMPT =
+  "You are an empathetic, world-class celebration designer. You create bespoke binary vibe-check questions comparing celebration directions tailored directly to the specific person and prompt.";
+
+export function createDeterministicFallbackBlendQuestions(
+  input: BlendQuestionsPromptInput,
+): BlendQuestion[] {
+  const name = input.recipientName || "them";
+  const occasion = input.occasionType || "Celebration";
+  const concept = input.concept || (input.knownInterests && input.knownInterests.length > 0 ? input.knownInterests.join(", ") : "celebration vibe");
+
+  return [
+    {
+      key: "celebration_setting",
+      category: "Setting & Energy",
+      title: `Atmosphere & Setting for ${name}`,
+      subtitle: `What kind of atmosphere would make ${name} feel most special for this ${occasion}?`,
+      options: [
+        {
+          value: "intimate_cozy",
+          label: "Intimate & Relaxed",
+          description: `A quiet, comfortable setting allowing meaningful connection and warmth without sensory overload`,
+        },
+        {
+          value: "vibrant_festive",
+          label: "Lively & Celebratory",
+          description: `A spirited, energetic atmosphere filled with celebratory music and shared joy`,
+        },
+      ],
+    },
+    {
+      key: "celebration_focus",
+      category: "Activity vs Keepsake",
+      title: `Core Focus for ${name}`,
+      subtitle: `What will create the most meaningful memory honoring ${name}'s love for ${concept}?`,
+      options: [
+        {
+          value: "experiential_moment",
+          label: `Shared ${concept} Experience`,
+          description: `Immersing in a dedicated hands-on experience or activity together`,
+        },
+        {
+          value: "thoughtful_keepsake",
+          label: "Lasting Keepsake or Tribute",
+          description: `A personalized tangible reminder or shared message collection they can hold onto`,
+        },
+      ],
+    },
+    {
+      key: "culinary_style",
+      category: "Dining & Refreshments",
+      title: `Food & Hospitality Style`,
+      subtitle: `How should meals and refreshments be served during the celebration?`,
+      options: [
+        {
+          value: "relaxed_grazing",
+          label: "Casual Sharing & Favorite Comfort Foods",
+          description: `Laid-back grazing platters, familiar comfort dishes, and free-flowing refreshments`,
+        },
+        {
+          value: "curated_specialty",
+          label: "Curated Specialty or Tasting Menu",
+          description: `A standout dining experience with intentional courses or private specialty cooking`,
+        },
+      ],
+    },
+    {
+      key: "surprise_comfort",
+      category: "Surprises & Flow",
+      title: `Surprise vs Predictability for ${name}`,
+      subtitle: `How does ${name} feel about unexpected elements or sudden reveals?`,
+      options: [
+        {
+          value: "spontaneous_delight",
+          label: "Hidden Clues & Dramatic Reveal",
+          description: `Keep elements secret until the moment to maximize anticipation and wonder`,
+        },
+        {
+          value: "gentle_anticipation",
+          label: "Clear Schedule & Advance Awareness",
+          description: `Let them know what to expect in advance so they feel calm and prepared`,
+        },
+      ],
+    },
+  ];
+}
+
+export async function generateBlendQuestions(
+  input: BlendQuestionsPromptInput,
+  modelOverride?: LanguageModel,
+): Promise<BlendQuestion[]> {
+  const modelId = process.env.AI_MODEL || DEFAULT_AI_MODEL;
+
+  try {
+    const model = modelOverride || getModel();
+    const prompt = buildBlendQuestionsPrompt(input);
+
+    const result = await generateText({
+      model,
+      output: Output.object({
+        schema: aiBlendQuestionsResponseSchema,
+      }),
+      system: BLEND_QUESTIONS_SYSTEM_PROMPT,
+      prompt,
+      maxOutputTokens: 1500,
+      abortSignal: AbortSignal.timeout(15000),
+    });
+
+    if (result.output && Array.isArray(result.output.questions) && result.output.questions.length >= 3) {
+      const parsed = blendQuestionsResponseSchema.parse({
+        questions: result.output.questions.slice(0, 5).map((q) => ({
+          key: q.key.toLowerCase().replace(/[^a-z0-9_]/g, "_").slice(0, 80),
+          category: q.category.slice(0, 80),
+          title: q.title.slice(0, 150),
+          subtitle: q.subtitle.slice(0, 250),
+          options: q.options.slice(0, 2).map((o) => ({
+            value: o.value.toLowerCase().replace(/[^a-z0-9_]/g, "_").slice(0, 100),
+            label: o.label.slice(0, 120),
+            description: o.description.slice(0, 300),
+          })),
+        })),
+      });
+      return parsed.questions;
+    }
+  } catch (err) {
+    logAiFailure("generateBlendQuestions", modelId, err);
+  }
+
+  return createDeterministicFallbackBlendQuestions(input);
 }
 
 

@@ -29,7 +29,6 @@ export function computeNextStep(state: NextStepState): NextStepAction {
     occasion,
     items,
     blockedCount,
-    vendorsCount = 0,
     isPublished = false,
     budgetSummary,
   } = state;
@@ -61,18 +60,7 @@ export function computeNextStep(state: NextStepState): NextStepAction {
     };
   }
 
-  // 4. No vendors added yet when vendor-relevant categories exist
-  const vendorCategories = new Set(["venue", "catering", "cake", "entertainment", "photography", "decor", "vendor"]);
-  const hasVendorTasks = items.some((i) => vendorCategories.has(i.category?.toLowerCase()));
-  if (vendorsCount === 0 && (hasVendorTasks || items.length > 0)) {
-    return {
-      label: "Add your first vendor",
-      tab: "vendors",
-      reason: "Track quotes and compare vendor options.",
-    };
-  }
-
-  // 5. Active to-do tasks remaining
+  // 4. Active to-do tasks remaining
   const activeTodo = items.filter((i) => !i.is_fallback && i.status === "todo");
   if (activeTodo.length > 0) {
     return {
@@ -82,7 +70,7 @@ export function computeNextStep(state: NextStepState): NextStepAction {
     };
   }
 
-  // 6. Default completed / ready state
+  // 5. Default completed / ready state
   return {
     label: "Export calendar (.ics)",
     tab: "timeline",

@@ -35,15 +35,15 @@ describe("computeNextStep engine module", () => {
     expect(step.tab).toBe("surprise");
   });
 
-  it("suggests adding first vendor when vendor count is zero and vendor tasks exist", () => {
+  it("guides to reviewing celebration tasks when items are in todo regardless of vendor count", () => {
     const step = computeNextStep({
       occasion: { is_surprise: false, event_at: "2026-11-01T18:00:00Z" },
       items: [{ id: "1", status: "todo", category: "catering", depends_on: [], is_fallback: false }],
       blockedCount: 0,
       vendorsCount: 0,
     });
-    expect(step.label).toBe("Add your first vendor");
-    expect(step.tab).toBe("vendors");
+    expect(step.label).toBe("Review celebration tasks");
+    expect(step.tab).toBe("plan");
   });
 
   it("suggests reviewing celebration tasks when items are in todo", () => {

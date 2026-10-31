@@ -83,6 +83,16 @@ test.describe("Voice Intake & Speech Recognition Feature", () => {
     await page.keyboard.press("Escape");
     await expect(micButton).toHaveAttribute("aria-pressed", "false", { timeout: 5000 });
 
+    // Privacy info button toggles the high-contrast popover dialog
+    const infoButton = page.locator('button[aria-label*="Speech privacy"]');
+    await expect(infoButton).toBeVisible();
+    await infoButton.click();
+    const privacyDialog = page.locator('div[role="dialog"][aria-label="Speech Privacy"]');
+    await expect(privacyDialog).toBeVisible();
+    await expect(privacyDialog).toContainText("Speech is processed by your browser; we only store the text.");
+    await page.locator('button[aria-label="Close privacy notice"]').click();
+    await expect(privacyDialog).toHaveCount(0);
+
     // Axe accessibility audit on the intake section
     const axeResults = await new AxeBuilder({ page })
       .include("#intake")

@@ -335,5 +335,48 @@ export const aiLetterHelperResponseSchema = z.object({
   suggestedClosing: z.string(),
 });
 
+// ---------------------------------------------------------------------------
+// Dynamic AI Our Blend Questions
+// ---------------------------------------------------------------------------
+export const blendQuestionOptionSchema = z.object({
+  value: z.string().min(1).max(100),
+  label: z.string().min(1).max(120),
+  description: z.string().min(1).max(300),
+});
+
+export const blendQuestionSchema = z.object({
+  key: z.string().min(1).max(80),
+  category: z.string().min(1).max(80),
+  title: z.string().min(1).max(150),
+  subtitle: z.string().min(1).max(250),
+  options: z.array(blendQuestionOptionSchema).min(2).max(2),
+});
+
+export const blendQuestionsResponseSchema = z.object({
+  questions: z.array(blendQuestionSchema).min(3).max(6),
+});
+
+export const aiBlendQuestionOptionSchema = z.object({
+  value: z.string(),
+  label: z.string(),
+  description: z.string(),
+});
+
+export const aiBlendQuestionSchema = z.object({
+  key: z.string(),
+  category: z.string(),
+  title: z.string(),
+  subtitle: z.string(),
+  options: z.array(aiBlendQuestionOptionSchema),
+});
+
+export const aiBlendQuestionsResponseSchema = z.object({
+  questions: z.array(aiBlendQuestionSchema),
+});
+
+export type BlendQuestionAI = z.infer<typeof blendQuestionSchema>;
+export type BlendQuestionsResponseAI = z.infer<typeof blendQuestionsResponseSchema>;
+
+
 
 

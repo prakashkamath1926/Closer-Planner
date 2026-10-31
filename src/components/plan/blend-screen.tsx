@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { Users, HeartHandshake, CheckCircle2, Info, Sparkles, Save, Share2, Check } from "lucide-react";
-import { BLEND_QUESTIONS, calculateBlendScore, AnswerEntry, BlendScoreResult } from "@/lib/engine/blend";
+import { BlendQuestion, calculateBlendScore, AnswerEntry, BlendScoreResult } from "@/lib/engine/blend";
 import { OccasionRecord } from "./plan-view";
 
 interface BlendScreenProps {
@@ -21,51 +21,111 @@ export function BlendScreen({ occasion }: BlendScreenProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [savedNotice, setSavedNotice] = useState<string | null>(null);
 
-  // Dynamic tailored questions incorporating recipient context
-  const questions = useMemo(() => {
+  // Dynamic AI tailored questions generated specifically for this occasion
+  const [questions, setQuestions] = useState<BlendQuestion[]>(() => {
     const name = occasion.recipient_name || "the guest of honor";
-    return BLEND_QUESTIONS.map((q) => {
-      if (q.key === "celebration_scale") {
-        return {
-          ...q,
-          title: `Celebration Scale & Setting for ${name}`,
-          subtitle: `What atmosphere would make ${name} feel most celebrated?`,
-        };
+    const occasionTitle = occasion.title || "Celebration";
+    return [
+      {
+        key: "celebration_setting",
+        category: "Setting & Energy",
+        title: `Atmosphere & Setting for ${name}`,
+        subtitle: `What kind of atmosphere will feel most special for ${name}'s ${occasionTitle}?`,
+        options: [
+          {
+            value: "intimate_warm",
+            label: "Cozy & Intimate",
+            description: "A warm, quiet setting with low sensory stress and deep conversation",
+          },
+          {
+            value: "celebratory_social",
+            label: "Lively & Celebratory",
+            description: "A vibrant, celebratory ambiance with music, social energy, and shared laughter",
+          },
+        ],
+      },
+      {
+        key: "celebration_focus",
+        category: "Activity vs Keepsake",
+        title: `Core Focus for ${name}`,
+        subtitle: `What focus will create the most meaningful memory for ${name}?`,
+        options: [
+          {
+            value: "immersive_activity",
+            label: "Shared Hands-On Experience",
+            description: `Doing something memorable together centered on ${occasionTitle}`,
+          },
+          {
+            value: "thoughtful_keepsake",
+            label: "Personal Keepsake or Shared Tribute",
+            description: "A heartfelt tangible keepsake or shared messages they can treasure forever",
+          },
+        ],
+      },
+      {
+        key: "culinary_style",
+        category: "Dining & Hospitality",
+        title: "Food & Dining Style",
+        subtitle: `What dining style suits ${name} and this ${occasionTitle} best?`,
+        options: [
+          {
+            value: "relaxed_grazing",
+            label: "Casual Sharing & Favorite Comfort Foods",
+            description: "Laid-back grazing platters, familiar comfort dishes, and free-flowing refreshments",
+          },
+          {
+            value: "curated_specialty",
+            label: "Curated Specialty or Tasting Menu",
+            description: "A standout dining experience with intentional courses or private specialty cooking",
+          },
+        ],
+      },
+      {
+        key: "surprise_comfort",
+        category: "Surprises & Flow",
+        title: `Surprise vs Predictability for ${name}`,
+        subtitle: `How does ${name} genuinely feel about unexpected surprises and reveals?`,
+        options: [
+          {
+            value: "playful_reveal",
+            label: "Playful Clues & Dramatic Reveal",
+            description: "Keep elements secret until the moment to maximize anticipation and wonder",
+          },
+          {
+            value: "gentle_anticipation",
+            label: "Clear Schedule & Advance Awareness",
+            description: "Let them know what to expect in advance so they feel calm, comfortable, and prepared",
+          },
+        ],
+      },
+    ];
+  });
+  const [isAiLoading, setIsAiLoading] = useState(false);
+
+  // Load AI questions tailored to the occasion prompt
+  useEffect(() => {
+    let ignore = false;
+    async function loadAiQuestions() {
+      try {
+        setIsAiLoading(true);
+        const res = await fetch(`/api/blend/questions?occasionId=${occasion.id}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!ignore && data.questions && Array.isArray(data.questions) && data.questions.length >= 3) {
+          setQuestions(data.questions);
+        }
+      } catch {
+        // Retain tailored contextual questions
+      } finally {
+        if (!ignore) setIsAiLoading(false);
       }
-      if (q.key === "focus_type") {
-        return {
-          ...q,
-          title: `Core Focus for ${name}`,
-          subtitle: `What would leave the most meaningful memory for ${name}?`,
-        };
-      }
-      if (q.key === "culinary_style") {
-        return {
-          ...q,
-          subtitle: `What dining style suits ${name} and the celebration best?`,
-        };
-      }
-      if (q.key === "surprise_level") {
-        return {
-          ...q,
-          subtitle: `How does ${name} genuinely feel about surprises and being center of attention?`,
-        };
-      }
-      if (q.key === "energy_flow") {
-        return {
-          ...q,
-          subtitle: `What pacing and event rhythm keeps ${name} most engaged?`,
-        };
-      }
-      if (q.key === "memorabilia_format") {
-        return {
-          ...q,
-          subtitle: `What takeaway would ${name} treasure most after the celebration?`,
-        };
-      }
-      return q;
-    });
-  }, [occasion.recipient_name]);
+    }
+
+    loadAiQuestions();
+    return () => {
+      ignore = true;
+    };
+  }, [occasion.id, occasion.title, occasion.recipient_name]);
 
   // Load existing session if saved
   useEffect(() => {
@@ -113,8 +173,8 @@ export function BlendScreen({ occasion }: BlendScreenProps) {
   }, [friendAnswers]);
 
   const blendResult: BlendScoreResult = useMemo(() => {
-    return calculateBlendScore(orgEntries, friendEntries, friendName);
-  }, [orgEntries, friendEntries, friendName]);
+    return calculateBlendScore(orgEntries, friendEntries, friendName, questions);
+  }, [orgEntries, friendEntries, friendName, questions]);
 
   const handleSelectOrganizer = (qKey: string, val: string) => {
     setOrganizerAnswers((prev) => ({ ...prev, [qKey]: val }));
@@ -158,11 +218,21 @@ export function BlendScreen({ occasion }: BlendScreenProps) {
       {/* Header */}
       <div className="flex flex-col justify-between gap-4 border-b border-blush pb-5 sm:flex-row sm:items-center">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <HeartHandshake className="h-5 w-5 text-rose" aria-hidden="true" />
             <h2 id="blend-heading" className="font-serif text-xl font-bold text-plum sm:text-2xl">
               Our Blend: Pre-Event Vibe Match
             </h2>
+            <span
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                isAiLoading
+                  ? "bg-rose/20 text-rose-deep animate-pulse"
+                  : "bg-rose/10 text-rose-deep"
+              }`}
+            >
+              <Sparkles className="h-3 w-3" aria-hidden="true" />
+              {isAiLoading ? "Generating AI Questions..." : "AI Prompt Vibe Match"}
+            </span>
           </div>
           <p className="mt-1 text-xs text-mauve">
             Compare your impressions with a close friend or family member who knows {occasion.recipient_name || "the recipient"}.

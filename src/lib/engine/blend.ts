@@ -190,8 +190,12 @@ export function normalizeAnswer(ans?: string | null): string {
 /**
  * Finds the human-readable display label for a question key and value.
  */
-export function getOptionDisplay(questionKey: string, value: string): string {
-  const q = BLEND_QUESTIONS.find((item) => item.key === questionKey);
+export function getOptionDisplay(
+  questionKey: string,
+  value: string,
+  questions: BlendQuestion[] = BLEND_QUESTIONS,
+): string {
+  const q = questions.find((item) => item.key === questionKey);
   if (!q) return value;
   const opt = q.options.find((o) => normalizeAnswer(o.value) === normalizeAnswer(value));
   return opt ? opt.label : value;
@@ -204,6 +208,7 @@ export function calculateBlendScore(
   organizerAnswers: AnswerEntry[],
   friendAnswers: AnswerEntry[],
   friendLabel: string = "trusted friend",
+  questions: BlendQuestion[] = BLEND_QUESTIONS,
 ): BlendScoreResult {
   const friendName = friendLabel.trim() || "trusted friend";
   const orgMap = new Map<string, string>();
@@ -228,7 +233,7 @@ export function calculateBlendScore(
   let comparableCount = 0;
   let matchCount = 0;
 
-  for (const q of BLEND_QUESTIONS) {
+  for (const q of questions) {
     const orgAns = orgMap.get(q.key);
     const friendAns = friendMap.get(q.key);
 
@@ -243,16 +248,16 @@ export function calculateBlendScore(
           questionKey: q.key,
           questionTitle: q.title,
           matchedValue: orgAns!,
-          matchedDisplay: getOptionDisplay(q.key, orgAns!),
+          matchedDisplay: getOptionDisplay(q.key, orgAns!, questions),
         });
       } else {
         differentAnswers.push({
           questionKey: q.key,
           questionTitle: q.title,
           organizerValue: orgAns!,
-          organizerDisplay: getOptionDisplay(q.key, orgAns!),
+          organizerDisplay: getOptionDisplay(q.key, orgAns!, questions),
           friendValue: friendAns!,
-          friendDisplay: getOptionDisplay(q.key, friendAns!),
+          friendDisplay: getOptionDisplay(q.key, friendAns!, questions),
         });
       }
     } else if (!hasOrg && !hasFriend) {
@@ -301,7 +306,7 @@ export function calculateBlendScore(
     score,
     scorePercentage,
     comparableCount,
-    totalQuestionsCount: BLEND_QUESTIONS.length,
+    totalQuestionsCount: questions.length,
     matchCount,
     agreementLabel,
     meaningExplanation,

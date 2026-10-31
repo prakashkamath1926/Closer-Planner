@@ -12,7 +12,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Check, Mic, MicOff, Info } from "lucide-react";
+import { Check, Mic, MicOff, Info, X } from "lucide-react";
 import { EntryPath, CelebrationIdea, IntakeRequest, UrgencyMode } from "@/lib/ai/schemas";
 import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
 import { IdeasScreen } from "./ideas-screen";
@@ -26,6 +26,7 @@ export function IntakeFlow() {
   const [generalWhy, setGeneralWhy] = useState<string | undefined>(undefined);
   const [source, setSource] = useState<"ai" | "fallback">("ai");
   const [savedOccasionId, setSavedOccasionId] = useState<string | null>(null);
+  const [showVoicePrivacy, setShowVoicePrivacy] = useState(false);
 
   // Form State
   const [occasionType, setOccasionType] = useState("");
@@ -52,11 +53,25 @@ export function IntakeFlow() {
     setLang: setSpeechLang,
   } = useSpeechRecognition({
     lang: "en-US",
-    onResult: (transcript) => {
+    onResult: (transcript, isFinal) => {
+      if (!isFinal) return;
+      const clean = transcript.trim();
+      if (!clean) return;
+
       if (entryPath === "have_idea") {
-        setConcept((prev) => (prev ? `${prev} ${transcript}` : transcript));
+        setConcept((prev) => {
+          const trimmed = prev.trim();
+          if (!trimmed) return clean;
+          if (trimmed.endsWith(clean)) return trimmed;
+          return `${trimmed} ${clean}`;
+        });
       } else {
-        setKnownInterests((prev) => (prev ? `${prev}, ${transcript}` : transcript));
+        setKnownInterests((prev) => {
+          const trimmed = prev.trim();
+          if (!trimmed) return clean;
+          if (trimmed.endsWith(clean)) return trimmed;
+          return `${trimmed}, ${clean}`;
+        });
       }
     },
   });
@@ -114,21 +129,44 @@ export function IntakeFlow() {
           )}
         </button>
 
-        {/* Privacy Info Tooltip */}
-        <div className="group relative flex items-center">
+        {/* Privacy Info Popover / Button */}
+        <div className="relative flex items-center">
           <button
             type="button"
+            onClick={() => setShowVoicePrivacy((prev) => !prev)}
+            aria-expanded={showVoicePrivacy}
             aria-label="Speech privacy: Speech is processed by your browser; we only store the text."
-            className="rounded-full p-1 text-mauve/70 hover:text-plum hover:bg-blush/40 focus:outline-none focus-visible:ring-1 focus-visible:ring-rose"
+            title="Speech is processed by your browser; we only store the text. Click to toggle info."
+            className="rounded-full p-1 text-mauve hover:text-plum hover:bg-blush/60 focus:outline-none focus-visible:ring-1 focus-visible:ring-rose"
           >
-            <Info className="h-3.5 w-3.5" aria-hidden="true" />
+            <Info className="h-4 w-4" aria-hidden="true" />
           </button>
-          <div
-            role="tooltip"
-            className="pointer-events-none absolute bottom-full right-0 mb-1.5 hidden w-48 rounded-lg bg-plum px-2.5 py-1.5 text-[11px] font-normal text-cream shadow-md group-hover:block group-focus-within:block z-20 leading-snug"
-          >
-            Speech is processed by your browser; we only store the text.
-          </div>
+
+          {showVoicePrivacy && (
+            <div
+              role="dialog"
+              aria-label="Speech Privacy"
+              className="absolute right-0 top-full mt-2 w-72 rounded-2xl border border-mauve/20 bg-white p-3.5 shadow-xl z-30 text-xs text-plum"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-1.5 font-semibold text-rose-deep">
+                  <Info className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span>Speech Privacy</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowVoicePrivacy(false)}
+                  className="rounded p-0.5 text-mauve hover:text-plum hover:bg-blush/40"
+                  aria-label="Close privacy notice"
+                >
+                  <X className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              </div>
+              <p className="mt-2 text-xs text-mauve leading-relaxed">
+                Speech is processed by your browser; we only store the text.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -647,11 +685,6 @@ export function IntakeFlow() {
             {isSubmitting ? "Generating 3 curated celebration directions..." : "Generate Celebration Ideas"}
           </button>
         </div>
-
-        {/* Global Privacy Footer Note */}
-        <p className="pt-1 text-center text-xs text-mauve">
-          Speech is processed by your browser; we only store the text.
-        </p>
       </div>
     </div>
   );
