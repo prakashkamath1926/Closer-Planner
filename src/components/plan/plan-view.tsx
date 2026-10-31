@@ -392,12 +392,12 @@ export function PlanView({
         </div>
       </header>
 
-      {/* Sticky Summary Strip */}
+      {/* Sticky Summary Strip (docks cleanly below 4rem top header) */}
       <section
         id="sticky-summary-strip"
         data-testid="planner-summary-strip"
         aria-label="Occasion summary and quick actions"
-        className="sticky top-0 z-30 border-b border-blush bg-paper/95 backdrop-blur-md shadow-xs transition-shadow"
+        className="sticky top-16 z-30 border-b border-blush bg-paper/95 backdrop-blur-md shadow-xs transition-shadow"
       >
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
           {/* Left: Quick stats (Budget Remaining + Date / Live Countdown) */}

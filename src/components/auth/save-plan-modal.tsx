@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { X, Lock, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/browser";
 import { upgradeSchema } from "@/lib/auth/validation";
@@ -47,33 +48,36 @@ export function SavePlanModal({ isOpen, onClose, occasionId, onUpgraded }: SaveP
           return;
         }
 
-        // UPGRADE the anonymous user: keeps the exact same auth.uid()!
-        const { data, error } = await supabase.auth.updateUser({
-          email: validation.data.email,
-          password: validation.data.password,
-          data: {
-            full_name: validation.data.fullName || undefined,
-          },
+        // UPGRADE the anonymous user via secure server API:
+        // preserves the exact same auth.uid() and auto-confirms email!
+        const res = await fetch("/api/auth/upgrade", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: validation.data.email,
+            password: validation.data.password,
+            fullName: validation.data.fullName,
+          }),
         });
 
-        if (error) {
-          setErrorMessage(error.message || "Failed to save plan with account.");
+        const json = await res.json();
+        if (!res.ok) {
+          setErrorMessage(json.error || "Failed to save plan with account.");
           return;
         }
 
-        // Verify that user ID stayed identical
-        if (data.user && data.user.id !== currentUser.id) {
-          console.error("Warning: user ID changed during upgrade!", {
-            before: currentUser.id,
-            after: data.user.id,
-          });
-        }
+        // Establish full password session in browser cookies
+        await supabase.auth.signInWithPassword({
+          email: validation.data.email,
+          password: validation.data.password,
+        });
 
         setIsSuccess(true);
         if (onUpgraded) onUpgraded();
         setTimeout(() => {
           onClose();
-        }, 1800);
+          window.location.reload();
+        }, 1500);
       } catch {
         setErrorMessage("An unexpected error occurred. Please try again.");
       }
@@ -259,6 +263,17 @@ export function SavePlanModal({ isOpen, onClose, occasionId, onUpgraded }: SaveP
                   {isPending ? "Securing plan..." : "Save plan"}
                 </button>
               </div>
+
+              <p className="mt-4 text-center text-xs text-mauve">
+                Already have an account?{" "}
+                <Link
+                  href={`/login?next=${encodeURIComponent(occasionId ? `/plan/${occasionId}` : "/")}`}
+                  onClick={onClose}
+                  className="font-semibold text-rose hover:underline"
+                >
+                  Sign in
+                </Link>
+              </p>
             </form>
           </>
         )}

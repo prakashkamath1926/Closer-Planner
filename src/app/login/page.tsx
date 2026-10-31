@@ -37,10 +37,25 @@ function LoginForm() {
     startTransition(async () => {
       try {
         const supabase = createClient();
-        const { error } = await supabase.auth.signInWithPassword({
+        let { error } = await supabase.auth.signInWithPassword({
           email: validation.data.email,
           password: validation.data.password,
         });
+
+        // If email was unconfirmed due to Supabase mailer limits, auto-confirm and retry
+        if (error && error.message?.toLowerCase().includes("email not confirmed")) {
+          await fetch("/api/auth/confirm", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: validation.data.email }),
+          });
+
+          const retry = await supabase.auth.signInWithPassword({
+            email: validation.data.email,
+            password: validation.data.password,
+          });
+          error = retry.error;
+        }
 
         if (error) {
           // Generic error message to prevent account enumeration

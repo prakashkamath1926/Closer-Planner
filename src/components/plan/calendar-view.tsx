@@ -53,6 +53,15 @@ function useHasNotificationSupport() {
   );
 }
 
+function toLocalDateKey(dateInput: string | Date): string {
+  const dt = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
+  if (isNaN(dt.getTime())) return "";
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, "0");
+  const d = String(dt.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 interface CalendarViewProps {
   occasion: OccasionRecord;
   items: PlanItemRecord[];
@@ -153,11 +162,24 @@ export function CalendarView({ occasion, items, onOpenChangeModal }: CalendarVie
   }, [items, nowMs]);
 
   // Month grid calculation
-  const eventDate = occasion.event_at ? new Date(occasion.event_at) : new Date();
-  const [viewMonthYear, setViewMonthYear] = useState(() => ({
-    year: eventDate.getFullYear(),
-    month: eventDate.getMonth(), // 0-indexed
-  }));
+  const [prevEventAt, setPrevEventAt] = useState(occasion.event_at);
+  const [viewMonthYear, setViewMonthYear] = useState(() => {
+    const eventDate = occasion.event_at ? new Date(occasion.event_at) : new Date();
+    return {
+      year: eventDate.getFullYear(),
+      month: eventDate.getMonth(), // 0-indexed
+    };
+  });
+
+  if (occasion.event_at !== prevEventAt) {
+    setPrevEventAt(occasion.event_at);
+    if (occasion.event_at) {
+      const ed = new Date(occasion.event_at);
+      if (!isNaN(ed.getTime())) {
+        setViewMonthYear({ year: ed.getFullYear(), month: ed.getMonth() });
+      }
+    }
+  }
 
   const monthGridDays = useMemo(() => {
     const { year, month } = viewMonthYear;
@@ -174,17 +196,16 @@ export function CalendarView({ occasion, items, onOpenChangeModal }: CalendarVie
       tasks: typeof items;
     }> = [];
 
-    for (let d = 1; d <= totalDays; d++) {
-      const cur = new Date(year, month, d);
-      const curStr = cur.toISOString().split("T")[0];
+    const eventLocalDateKey = occasion.event_at ? toLocalDateKey(occasion.event_at) : null;
 
-      const isEventDay = occasion.event_at
-        ? new Date(occasion.event_at).toISOString().split("T")[0] === curStr
-        : false;
+    for (let d = 1; d <= totalDays; d++) {
+      const curStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+
+      const isEventDay = eventLocalDateKey !== null && eventLocalDateKey === curStr;
 
       const tasksOnDay = items.filter((i) => {
         if (!i.due_at) return false;
-        return new Date(i.due_at).toISOString().split("T")[0] === curStr;
+        return toLocalDateKey(i.due_at) === curStr;
       });
 
       days.push({

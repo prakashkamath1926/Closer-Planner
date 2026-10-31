@@ -43,33 +43,37 @@ function SignupForm() {
 
     startTransition(async () => {
       try {
-        const supabase = createClient();
-        const origin = typeof window !== "undefined" ? window.location.origin : "";
-
-        const { data, error } = await supabase.auth.signUp({
-          email: validation.data.email,
-          password: validation.data.password,
-          options: {
-            data: {
-              full_name: validation.data.fullName,
-            },
-            emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(nextParam)}`,
-          },
+        const res = await fetch("/api/auth/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fullName: validation.data.fullName,
+            email: validation.data.email,
+            password: validation.data.password,
+          }),
         });
 
-        if (error) {
-          setErrorMessage("Unable to create account. Please try again.");
+        const json = await res.json();
+        if (!res.ok) {
+          setErrorMessage(json.error || "Unable to create account. Please try again.");
           return;
         }
 
-        if (data.session) {
-          router.push(nextParam);
-          router.refresh();
-        } else {
-          setSuccessNotice(
-            "Account created! Please check your email inbox to confirm your account and get started.",
-          );
+        // Sign in immediately to establish session in browser cookies
+        const supabase = createClient();
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: validation.data.email,
+          password: validation.data.password,
+        });
+
+        if (signInError) {
+          setErrorMessage("Account created! Please sign in with your credentials.");
+          router.push(`/login?next=${encodeURIComponent(nextParam)}`);
+          return;
         }
+
+        router.push(nextParam);
+        router.refresh();
       } catch {
         setErrorMessage("An unexpected error occurred. Please try again.");
       }
