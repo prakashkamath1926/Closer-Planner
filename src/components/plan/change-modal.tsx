@@ -25,6 +25,18 @@ interface ChangeModalProps {
   ) => void;
 }
 
+function toLocalDatetimeInput(dateIso: string | null | undefined): string {
+  if (!dateIso) return "";
+  const d = new Date(dateIso);
+  if (isNaN(d.getTime())) return "";
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
 export function ChangeModal({
   isOpen,
   occasionId,
@@ -39,7 +51,7 @@ export function ChangeModal({
     currentBudgetTotal ? String(currentBudgetTotal) : "",
   );
   const [eventAtInput, setEventAtInput] = useState<string>(
-    currentEventAt ? currentEventAt.slice(0, 16) : "",
+    toLocalDatetimeInput(currentEventAt),
   );
   const [guestCountInput, setGuestCountInput] = useState<string>(
     currentGuestCount ? String(currentGuestCount) : "",
@@ -133,9 +145,15 @@ export function ChangeModal({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-plum/40 p-4 backdrop-blur-xs sm:p-6">
-      <div className="flex min-h-full items-start sm:items-center justify-center p-4 py-8 sm:py-12 text-center">
-        <div className="relative my-auto w-full max-w-lg rounded-3xl border border-blush bg-paper p-6 text-left shadow-xl sm:p-8">
+    <div
+      role="dialog"
+      aria-modal="true"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-plum/50 backdrop-blur-xs"
+    >
+      <div className="relative w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-3xl border border-blush bg-paper p-6 sm:p-8 text-left shadow-2xl">
           <div className="flex items-center justify-between border-b border-blush pb-4">
             <div className="flex items-center gap-2">
               <div className="grid size-9 place-items-center rounded-full bg-blush text-plum">
@@ -262,8 +280,7 @@ export function ChangeModal({
             </div>
           </form>
         </div>
-      </div>
-    </div>,
-    document.body,
-  );
-}
+      </div>,
+      document.body,
+    );
+  }

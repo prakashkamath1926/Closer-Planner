@@ -11,10 +11,35 @@
  * - Returns explicit source ("ai" | "fallback") so templates are never misrepresented as AI output.
  */
 
-import { generateText, Output, LanguageModel } from "ai";
+import type { LanguageModel } from "ai";
 import { createGroq } from "@ai-sdk/groq";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { getAiEnv, DEFAULT_AI_MODEL } from "@/lib/env";
+import { executeWithChain, ByokConfig, ChainEntry } from "@/lib/ai/router";
+
+export interface ChainCallOptions {
+  model?: LanguageModel;
+  modelId?: string;
+  byok?: ByokConfig | null;
+  customChain?: ChainEntry[];
+}
+
+function parseCallOptions(options?: LanguageModel | ChainCallOptions): {
+  modelOverride?: LanguageModel;
+  byok?: ByokConfig | null;
+  customChain?: ChainEntry[];
+} {
+  if (!options) return {};
+  if (typeof options === "object" && options !== null && "modelId" in options) {
+    return { modelOverride: options as LanguageModel };
+  }
+  const opts = options as ChainCallOptions;
+  return {
+    modelOverride: opts.model,
+    byok: opts.byok,
+    customChain: opts.customChain,
+  };
+}
 import {
   IntakeRequest,
   ProposeIdeasResponse,
@@ -153,12 +178,7 @@ export function classifyAiError(error: unknown): AiDiagnosticDetails {
   };
 }
 
-function logAiFailure(tool: string, modelId: string, error: unknown) {
-  const diag = classifyAiError(error);
-  console.warn(
-    `[AI Failure] tool="${tool}" model="${modelId}" category="${diag.category}" error="${diag.errorName}" status=${diag.statusCode} detail="${diag.detail || diag.zodIssues || ""}"`,
-  );
-}
+
 
 /**
  * Returns the configured AI model based on available environment variables.
@@ -166,12 +186,12 @@ function logAiFailure(tool: string, modelId: string, error: unknown) {
  */
 export function getModel(modelIdOverride?: string): LanguageModel {
   const env = getAiEnv();
+  const modelId = modelIdOverride || env.AI_MODEL || DEFAULT_AI_MODEL;
 
   if (env.GROQ_API_KEY) {
     const groq = createGroq({
       apiKey: env.GROQ_API_KEY,
     });
-    const modelId = modelIdOverride || env.AI_MODEL || "llama-3.3-70b-versatile";
     return groq(modelId);
   }
 
@@ -179,8 +199,7 @@ export function getModel(modelIdOverride?: string): LanguageModel {
     const google = createGoogleGenerativeAI({
       apiKey: env.GOOGLE_GENERATIVE_AI_API_KEY,
     });
-    const modelId = modelIdOverride || env.AI_MODEL || "gemini-2.0-flash";
-    return google(modelId);
+    return google(modelIdOverride || "gemini-3.1-flash-lite");
   }
 
   throw new Error("No valid AI credentials found in environment.");
@@ -336,94 +355,105 @@ export function createDeterministicFallbackIdeas(
  */
 export async function proposeIdeas(
   input: IntakeRequest,
-  options?: { model?: LanguageModel; modelId?: string },
+  options?: LanguageModel | ChainCallOptions,
 ): Promise<ProposeIdeasResponse> {
-  const modelId = options?.modelId || process.env.AI_MODEL || DEFAULT_AI_MODEL;
+  const { modelOverride, byok, customChain } = parseCallOptions(options);
+  const fallback = createDeterministicFallbackIdeas(input);
 
-  // Rule 15: "Invalid model output is rejected, retried once, and user input is preserved if it still fails."
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const model = options?.model || getModel(modelId);
+  const result = await executeWithChain({
+    toolName: "proposeIdeas",
+    schema: aiProposeIdeasResponseSchema,
+    systemPrompt: PROPOSE_IDEAS_SYSTEM_PROMPT,
+    prompt: buildProposeIdeasUserPrompt(input),
+    maxOutputTokens: 2500,
+    byok,
+    customChain,
+    modelResolverOverride: modelOverride ? () => modelOverride : undefined,
+    fallbackGenerator: () => fallback,
+  });
 
-      const { output } = await generateText({
-        model,
-        output: Output.object({
-          schema: aiProposeIdeasResponseSchema,
-        }),
-        system: PROPOSE_IDEAS_SYSTEM_PROMPT,
-        prompt: buildProposeIdeasUserPrompt(input),
-        maxOutputTokens: 2500,
-        abortSignal: AbortSignal.timeout(25_000),
-      });
-
-      // Slice exactly 3 ideas from model output
-      const rawIdeas = output.ideas.slice(0, 3);
-      if (rawIdeas.length < 3) {
-        throw new Error(`Model returned only ${rawIdeas.length} ideas, expected at least 3`);
-      }
-
-      // Enforce hard rule: no cost is ever confirmed, sanitize lengths, and run through domain schema
-      const sanitizedIdeas: CelebrationIdea[] = rawIdeas.map((idea, idx) => ({
-        id: idea.id || `idea-${idx + 1}`,
-        title: (idea.title || `Celebration Option ${idx + 1}`).slice(0, 120),
-        description: (idea.description || "").slice(0, 500),
-        whyItSuitsThem: (idea.whyItSuitsThem || "").slice(0, 400),
-        activities: (idea.activities && idea.activities.length > 0 ? idea.activities : ["Celebration gathering"])
-          .slice(0, 8)
-          .map((a) => a.slice(0, 200)),
-        estimatedCostMin: Math.max(0, Number(idea.estimatedCostMin) || 0),
-        estimatedCostMax: Math.max(0, Number(idea.estimatedCostMax) || 0),
-        currency: (idea.currency || input.currency || "INR").slice(0, 3),
-        requiredTime: (idea.requiredTime || "Flexible").slice(0, 100),
-        urgencyMode: (["tonight", "this_week", "weeks_away"].includes(idea.urgencyMode) ? idea.urgencyMode : input.urgencyMode) as UrgencyMode,
-        facts: (idea.facts || []).slice(0, 10).map((f) => ({
-          key: (f.key || "Preference").slice(0, 100),
-          value: (f.value || "").slice(0, 300),
-          status: (["known", "possible", "needs_confirmation"].includes(f.status) ? f.status : "possible") as FactStatus,
-          source: (["organizer", "friend", "recipient"].includes(f.source || "") ? f.source : "organizer") as FactSource,
-        })),
-        items: (idea.items && idea.items.length > 0 ? idea.items : [
-          {
-            title: "Celebration coordination",
-            category: "other",
-            intentTag: null,
-            why: null,
-            estimatedCost: Math.round((input.budgetTotal || 50000) * 0.5),
-            costStatus: "estimate" as const,
-            isNonNegotiable: true,
-            planB: null,
-          },
-        ])
-          .slice(0, 15)
-          .map((item) => ({
-            title: (item.title || "Plan item").slice(0, 120),
-            category: (item.category || "other").slice(0, 50),
-            intentTag: item.intentTag ? item.intentTag.slice(0, 50) : null,
-            why: item.why ? item.why.slice(0, 300) : null,
-            estimatedCost: Math.max(0, Number(item.estimatedCost) || 0),
-            planB: item.planB ? item.planB.slice(0, 300) : null,
-            isNonNegotiable: Boolean(item.isNonNegotiable),
-            costStatus: (item.costStatus === "quoted" ? "quoted" : "estimate") as "estimate" | "quoted",
-          })),
-      }));
-
-      return proposeIdeasResponseSchema.parse({
-        ideas: sanitizedIdeas,
-        generalWhy: output.generalWhy ? output.generalWhy.slice(0, 300) : undefined,
-        source: "ai",
-      });
-    } catch (error) {
-      if (attempt === 0 && !options?.model) {
-        // Retry once before falling back
-        continue;
-      }
-      logAiFailure("proposeIdeas", modelId, error);
-      // Preserves the user's input so they never lose progress (Rule 26)
-      return createDeterministicFallbackIdeas(input);
-    }
+  if (result.source === "fallback" || !result.output) {
+    return {
+      ...fallback,
+      source: "fallback",
+      provider: result.provider,
+      model: result.model,
+    };
   }
 
-  return createDeterministicFallbackIdeas(input);
+  try {
+    const rawIdeas = (result.output as { ideas: CelebrationIdea[] }).ideas.slice(0, 3);
+    if (rawIdeas.length < 3) {
+      return {
+        ...fallback,
+        source: "fallback",
+        provider: result.provider,
+        model: result.model,
+      };
+    }
+
+    // Enforce hard rule: no cost is ever confirmed, sanitize lengths, and run through domain schema
+    const sanitizedIdeas: CelebrationIdea[] = rawIdeas.map((idea, idx) => ({
+      id: idea.id || `idea-${idx + 1}`,
+      title: (idea.title || `Celebration Option ${idx + 1}`).slice(0, 120),
+      description: (idea.description || "").slice(0, 500),
+      whyItSuitsThem: (idea.whyItSuitsThem || "").slice(0, 400),
+      activities: (idea.activities && idea.activities.length > 0 ? idea.activities : ["Celebration gathering"])
+        .slice(0, 8)
+        .map((a) => a.slice(0, 200)),
+      estimatedCostMin: Math.max(0, Number(idea.estimatedCostMin) || 0),
+      estimatedCostMax: Math.max(0, Number(idea.estimatedCostMax) || 0),
+      currency: (idea.currency || input.currency || "INR").slice(0, 3),
+      requiredTime: (idea.requiredTime || "Flexible").slice(0, 100),
+      urgencyMode: (["tonight", "this_week", "weeks_away"].includes(idea.urgencyMode) ? idea.urgencyMode : input.urgencyMode) as UrgencyMode,
+      facts: (idea.facts || []).slice(0, 10).map((f) => ({
+        key: (f.key || "Preference").slice(0, 100),
+        value: (f.value || "").slice(0, 300),
+        status: (["known", "possible", "needs_confirmation"].includes(f.status) ? f.status : "possible") as FactStatus,
+        source: (["organizer", "friend", "recipient"].includes(f.source || "") ? f.source : "organizer") as FactSource,
+      })),
+      items: (idea.items && idea.items.length > 0 ? idea.items : [
+        {
+          title: "Celebration coordination",
+          category: "other",
+          intentTag: null,
+          why: null,
+          estimatedCost: Math.round((input.budgetTotal || 50000) * 0.5),
+          costStatus: "estimate" as const,
+          isNonNegotiable: true,
+          planB: null,
+        },
+      ])
+        .slice(0, 15)
+        .map((item) => ({
+          title: (item.title || "Plan item").slice(0, 120),
+          category: (item.category || "other").slice(0, 50),
+          intentTag: item.intentTag ?? null,
+          why: item.why ?? null,
+          estimatedCost: Math.max(0, Number(item.estimatedCost) || 0),
+          planB: item.planB ?? null,
+          isNonNegotiable: Boolean(item.isNonNegotiable),
+          costStatus: (item.costStatus === "quoted" ? "quoted" : "estimate") as "estimate" | "quoted",
+        })),
+    }));
+
+    return proposeIdeasResponseSchema.parse({
+      ideas: sanitizedIdeas,
+      generalWhy: (result.output as { generalWhy?: string }).generalWhy
+        ? (result.output as { generalWhy?: string }).generalWhy!.slice(0, 300)
+        : undefined,
+      source: "ai",
+      provider: result.provider,
+      model: result.model,
+    });
+  } catch {
+    return {
+      ...fallback,
+      source: "fallback",
+      provider: result.provider,
+      model: result.model,
+    };
+  }
 }
 
 /**
@@ -562,100 +592,85 @@ export function createDeterministicFallbackTradeoffs(
 export async function proposeTradeoffs(
   promptInput: ProposeTradeoffsPromptInput,
   baselineItems: PlanItem[],
-  options?: { model?: LanguageModel; modelId?: string },
+  options?: LanguageModel | ChainCallOptions,
 ): Promise<ProposeTradeoffsResponse> {
   const targetBudget = promptInput.newBudget ?? promptInput.previousBudget;
   const verifiedOptions: TradeoffOption[] = [];
-  const modelId = options?.modelId || process.env.AI_MODEL || DEFAULT_AI_MODEL;
+  const { modelOverride, byok, customChain } = parseCallOptions(options);
+  const fallback = createDeterministicFallbackTradeoffs(promptInput, baselineItems);
 
-  // Rule 15: "Invalid model output is rejected, retried once, and user input is preserved if it still fails."
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const model = options?.model || getModel(modelId);
+  const result = await executeWithChain({
+    toolName: "proposeTradeoffs",
+    schema: aiProposeTradeoffsResponseSchema,
+    systemPrompt: PROPOSE_TRADEOFFS_SYSTEM_PROMPT,
+    prompt: buildProposeTradeoffsUserPrompt(promptInput),
+    maxOutputTokens: 2500,
+    byok,
+    customChain,
+    modelResolverOverride: modelOverride ? () => modelOverride : undefined,
+    fallbackGenerator: () => createDeterministicFallbackTradeoffs(promptInput, baselineItems),
+  });
 
-      const { output } = await generateText({
-        model,
-        output: Output.object({
-          schema: aiProposeTradeoffsResponseSchema,
-        }),
-        system: PROPOSE_TRADEOFFS_SYSTEM_PROMPT,
-        prompt: buildProposeTradeoffsUserPrompt(promptInput),
-        maxOutputTokens: 2500,
-        abortSignal: AbortSignal.timeout(25_000),
-      });
+  if (result.source === "ai") {
+    const rawOptions = (result.output as { options: TradeoffOption[] }).options || [];
+    for (const option of rawOptions) {
+      const sanitizedOption: TradeoffOption = {
+        id: option.id || `tradeoff-${verifiedOptions.length + 1}`,
+        title: (option.title || "Trade-off Option").slice(0, 120),
+        description: (option.description || "").slice(0, 400),
+        whyItWorks: (option.whyItWorks || "").slice(0, 300),
+        preservedIntentTags: option.preservedIntentTags || [],
+        modifiedItems: (option.modifiedItems || []).map((m) => ({
+          id: m.id,
+          title: m.title ? m.title.slice(0, 120) : undefined,
+          estimatedCost: m.estimatedCost !== null && m.estimatedCost !== undefined ? Math.max(0, Number(m.estimatedCost)) : undefined,
+          costStatus: m.costStatus === "quoted" ? "quoted" : m.costStatus ? "estimate" : undefined,
+          dueAt: m.dueAt ?? undefined,
+          dependsOn: m.dependsOn ?? undefined,
+          intentTag: m.intentTag ? m.intentTag.slice(0, 50) : undefined,
+          why: m.why ? m.why.slice(0, 300) : undefined,
+        })),
+        addedItems: (option.addedItems || []).map((a) => ({
+          title: (a.title || "Added item").slice(0, 120),
+          category: (a.category || "other").slice(0, 50),
+          intentTag: a.intentTag ? a.intentTag.slice(0, 50) : null,
+          why: a.why ? a.why.slice(0, 300) : null,
+          estimatedCost: Math.max(0, Number(a.estimatedCost) || 0),
+          costStatus: a.costStatus === "quoted" ? "quoted" : "estimate",
+          isNonNegotiable: a.isNonNegotiable || false,
+          planB: a.planB ? a.planB.slice(0, 300) : null,
+        })),
+        removedItemIds: option.removedItemIds || [],
+      };
 
-      // ENGINE VALIDATION PASS:
-      // Drop any option that fails budget ceiling or introduces dependency cycles/missing IDs
-      for (const option of output.options) {
-        const sanitizedOption: TradeoffOption = {
-          id: option.id || `tradeoff-${verifiedOptions.length + 1}`,
-          title: (option.title || "Trade-off Option").slice(0, 120),
-          description: (option.description || "").slice(0, 400),
-          whyItWorks: (option.whyItWorks || "").slice(0, 300),
-          preservedIntentTags: option.preservedIntentTags || [],
-          modifiedItems: (option.modifiedItems || []).map((m) => ({
-            id: m.id,
-            title: m.title ? m.title.slice(0, 120) : undefined,
-            estimatedCost: m.estimatedCost !== null && m.estimatedCost !== undefined ? Math.max(0, Number(m.estimatedCost)) : undefined,
-            costStatus: m.costStatus === "quoted" ? "quoted" : m.costStatus ? "estimate" : undefined,
-            dueAt: m.dueAt ?? undefined,
-            dependsOn: m.dependsOn ?? undefined,
-            intentTag: m.intentTag ? m.intentTag.slice(0, 50) : undefined,
-            why: m.why ? m.why.slice(0, 300) : undefined,
-          })),
-          addedItems: (option.addedItems || []).map((a) => ({
-            title: (a.title || "Added item").slice(0, 120),
-            category: (a.category || "other").slice(0, 50),
-            intentTag: a.intentTag ? a.intentTag.slice(0, 50) : null,
-            why: a.why ? a.why.slice(0, 300) : null,
-            estimatedCost: Math.max(0, Number(a.estimatedCost) || 0),
-            costStatus: a.costStatus === "quoted" ? "quoted" : "estimate",
-            isNonNegotiable: a.isNonNegotiable || false,
-            planB: a.planB ? a.planB.slice(0, 300) : null,
-          })),
-          removedItemIds: option.removedItemIds || [],
-        };
+      const simulatedPlan = simulateOptionPlan(baselineItems, sanitizedOption);
 
-        const simulatedPlan = simulateOptionPlan(baselineItems, sanitizedOption);
-
-        // Check 1: Budget Ceiling
-        if (targetBudget !== undefined && targetBudget !== null) {
-          if (isOverBudget(targetBudget, simulatedPlan)) {
-            continue;
-          }
-        }
-
-        // Check 2: Dependency Graph Integrity & Acyclicity
-        const graphValidation = validateDependencyGraph(simulatedPlan);
-        if (!graphValidation.valid) {
+      if (targetBudget !== undefined && targetBudget !== null) {
+        if (isOverBudget(targetBudget, simulatedPlan)) {
           continue;
         }
-
-        verifiedOptions.push(sanitizedOption);
       }
 
-      if (verifiedOptions.length >= 2) {
-        return proposeTradeoffsResponseSchema.parse({
-          options: verifiedOptions.slice(0, 3),
-          analysisSummary: `Trade-offs evaluated and verified by deterministic budget and timeline engine.`,
-          source: "ai",
-        });
-      }
-
-      // If fewer than 2 valid options returned by model on first attempt, retry once
-      if (attempt === 0 && !options?.model) {
+      const graphValidation = validateDependencyGraph(simulatedPlan);
+      if (!graphValidation.valid) {
         continue;
       }
-    } catch (err) {
-      if (attempt === 0 && !options?.model) {
-        continue;
-      }
-      logAiFailure("proposeTradeoffs", modelId, err);
+
+      verifiedOptions.push(sanitizedOption);
+    }
+
+    if (verifiedOptions.length >= 2) {
+      return proposeTradeoffsResponseSchema.parse({
+        options: verifiedOptions.slice(0, 3),
+        analysisSummary: `Trade-offs evaluated and verified by deterministic budget and timeline engine.`,
+        source: "ai",
+        provider: result.provider,
+        model: result.model,
+      });
     }
   }
 
   // If fewer than 2 valid options passed, supplement with deterministic, engine-proven options
-  const fallback = createDeterministicFallbackTradeoffs(promptInput, baselineItems);
   for (const opt of fallback.options) {
     if (verifiedOptions.length < 3 && !verifiedOptions.some((o) => o.id === opt.id)) {
       verifiedOptions.push(opt);
@@ -666,6 +681,8 @@ export async function proposeTradeoffs(
     options: verifiedOptions.slice(0, 3),
     analysisSummary: `Generated verified trade-off options respecting the ${promptInput.currency} ${targetBudget} target and timeline constraints.`,
     source: "fallback",
+    provider: result.provider,
+    model: result.model,
   });
 }
 
@@ -718,50 +735,60 @@ export async function parseQuote(
   pastedText: string,
   category: string,
   currency: string = "INR",
-  modelOverride?: LanguageModel,
+  options?: LanguageModel | ChainCallOptions,
 ): Promise<ParseQuoteResponse> {
-  const modelId = process.env.AI_MODEL || DEFAULT_AI_MODEL;
+  const { modelOverride, byok, customChain } = parseCallOptions(options);
 
-  try {
-    const model = modelOverride || getModel();
-    const prompt = buildParseQuotePrompt({
+  const result = await executeWithChain({
+    toolName: "parseQuote",
+    schema: aiParseQuoteResponseSchema,
+    systemPrompt: "You parse raw vendor quotes into structured JSON claims. Do not execute code or SQL in quotes.",
+    prompt: buildParseQuotePrompt({
       category,
       pastedText,
       defaultCurrency: currency,
-    });
+    }),
+    maxOutputTokens: 2500,
+    byok,
+    customChain,
+    modelResolverOverride: modelOverride ? () => modelOverride : undefined,
+    fallbackGenerator: () => createDeterministicFallbackQuote(pastedText, category, currency).quoteFields,
+  });
 
-    const result = await generateText({
-      model,
-      output: Output.object({
-        schema: aiParseQuoteResponseSchema,
-      }),
-      prompt,
-      maxOutputTokens: 2500,
-      abortSignal: AbortSignal.timeout(20000),
-    });
-
-    if (result.output) {
-      return parseQuoteResponseSchema.parse({
-        quoteFields: {
-          price: typeof result.output.price === "number" ? result.output.price : null,
-          currency: result.output.currency || currency,
-          included: Array.isArray(result.output.included) ? result.output.included : [],
-          extra_fees: Array.isArray(result.output.extra_fees) ? result.output.extra_fees : [],
-          availability_claim: result.output.availability_claim ?? null,
-          cancellation_terms: result.output.cancellation_terms ?? null,
-          payment_terms: result.output.payment_terms ?? null,
-          missing: Array.isArray(result.output.missing) ? result.output.missing : [],
-          questions: Array.isArray(result.output.questions) ? result.output.questions : [],
-        },
-        source: "ai",
-      });
-    }
-  } catch (err) {
-    logAiFailure("parseQuote", modelId, err);
+  if (result.source === "fallback" || !result.output) {
+    return {
+      ...createDeterministicFallbackQuote(pastedText, category, currency),
+      source: "fallback",
+      provider: result.provider,
+      model: result.model,
+    };
   }
 
-  // Graceful fallback: preserves quote data safely without executing injections
-  return createDeterministicFallbackQuote(pastedText, category, currency);
+  try {
+    return parseQuoteResponseSchema.parse({
+      quoteFields: {
+        price: typeof result.output.price === "number" ? result.output.price : null,
+        currency: result.output.currency || currency,
+        included: Array.isArray(result.output.included) ? result.output.included : [],
+        extra_fees: Array.isArray(result.output.extra_fees) ? result.output.extra_fees : [],
+        availability_claim: result.output.availability_claim ?? null,
+        cancellation_terms: result.output.cancellation_terms ?? null,
+        payment_terms: result.output.payment_terms ?? null,
+        missing: Array.isArray(result.output.missing) ? result.output.missing : [],
+        questions: Array.isArray(result.output.questions) ? result.output.questions : [],
+      },
+      source: "ai",
+      provider: result.provider,
+      model: result.model,
+    });
+  } catch {
+    return {
+      ...createDeterministicFallbackQuote(pastedText, category, currency),
+      source: "fallback",
+      provider: result.provider,
+      model: result.model,
+    };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -824,36 +851,47 @@ export function createDeterministicFallbackQuestions(
 export async function getVendorQuestions(
   category: string,
   occasionType: string = "celebration",
-  modelOverride?: LanguageModel,
+  options?: LanguageModel | ChainCallOptions,
 ): Promise<VendorQuestionsResponse> {
-  const modelId = process.env.AI_MODEL || DEFAULT_AI_MODEL;
+  const { modelOverride, byok, customChain } = parseCallOptions(options);
 
-  try {
-    const model = modelOverride || getModel();
-    const prompt = buildVendorQuestionsPrompt({ category, occasionType });
+  const result = await executeWithChain({
+    toolName: "getVendorQuestions",
+    schema: aiVendorQuestionsResponseSchema,
+    systemPrompt: "You are an experienced event planner generating critical vendor vetting questions.",
+    prompt: buildVendorQuestionsPrompt({ category, occasionType }),
+    maxOutputTokens: 1000,
+    byok,
+    customChain,
+    modelResolverOverride: modelOverride ? () => modelOverride : undefined,
+    fallbackGenerator: () => createDeterministicFallbackQuestions(category),
+  });
 
-    const result = await generateText({
-      model,
-      output: Output.object({
-        schema: aiVendorQuestionsResponseSchema,
-      }),
-      prompt,
-      maxOutputTokens: 1000,
-      abortSignal: AbortSignal.timeout(15000),
-    });
-
-    if (result.output && Array.isArray(result.output.questions) && result.output.questions.length > 0) {
-      return vendorQuestionsResponseSchema.parse({
-        category,
-        questions: result.output.questions.slice(0, 6),
-        source: "ai",
-      });
-    }
-  } catch (err) {
-    logAiFailure("getVendorQuestions", modelId, err);
+  if (result.source === "fallback") {
+    return {
+      ...result.output,
+      source: "fallback",
+      provider: result.provider,
+      model: result.model,
+    };
   }
 
-  return createDeterministicFallbackQuestions(category);
+  try {
+    return vendorQuestionsResponseSchema.parse({
+      category,
+      questions: result.output.questions.slice(0, 6),
+      source: "ai",
+      provider: result.provider,
+      model: result.model,
+    });
+  } catch {
+    return {
+      ...createDeterministicFallbackQuestions(category),
+      source: "fallback",
+      provider: result.provider,
+      model: result.model,
+    };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -868,43 +906,55 @@ export function createDeterministicFallbackInvitationCopy(
     subheading: `A warm gathering in honor of a cherished milestone`,
     invitationBody: `Please join us as we come together to celebrate ${input.recipientName || "our guest of honor"} with joyful memories, great food, and heartwarming company.`,
     dressCodeNote: "Festive & comfortable attire",
+    source: "fallback",
   };
 }
 
 export async function generateInvitationCopy(
   input: InvitationPromptInput,
-  modelOverride?: LanguageModel,
+  options?: LanguageModel | ChainCallOptions,
 ): Promise<InvitationCopy> {
-  const modelId = process.env.AI_MODEL || DEFAULT_AI_MODEL;
+  const { modelOverride, byok, customChain } = parseCallOptions(options);
 
-  try {
-    const model = modelOverride || getModel();
-    const prompt = buildInvitationCopyPrompt(input);
+  const result = await executeWithChain({
+    toolName: "generateInvitationCopy",
+    schema: aiInvitationCopySchema,
+    systemPrompt: INVITATION_COPY_SYSTEM_PROMPT,
+    prompt: buildInvitationCopyPrompt(input),
+    maxOutputTokens: 500,
+    byok,
+    customChain,
+    modelResolverOverride: modelOverride ? () => modelOverride : undefined,
+    fallbackGenerator: () => createDeterministicFallbackInvitationCopy(input),
+  });
 
-    const result = await generateText({
-      model,
-      output: Output.object({
-        schema: aiInvitationCopySchema,
-      }),
-      system: INVITATION_COPY_SYSTEM_PROMPT,
-      prompt,
-      maxOutputTokens: 500,
-      abortSignal: AbortSignal.timeout(15000),
-    });
-
-    if (result.output) {
-      return invitationCopySchema.parse({
-        headline: result.output.headline.slice(0, 120),
-        subheading: result.output.subheading.slice(0, 150),
-        invitationBody: result.output.invitationBody.slice(0, 400),
-        dressCodeNote: result.output.dressCodeNote ? result.output.dressCodeNote.slice(0, 100) : undefined,
-      });
-    }
-  } catch (err) {
-    logAiFailure("generateInvitationCopy", modelId, err);
+  if (result.source === "fallback" || !result.output) {
+    return {
+      ...createDeterministicFallbackInvitationCopy(input),
+      source: "fallback",
+      provider: result.provider,
+      model: result.model,
+    };
   }
 
-  return createDeterministicFallbackInvitationCopy(input);
+  try {
+    return invitationCopySchema.parse({
+      headline: result.output.headline.slice(0, 120),
+      subheading: result.output.subheading.slice(0, 150),
+      invitationBody: result.output.invitationBody.slice(0, 400),
+      dressCodeNote: result.output.dressCodeNote ? result.output.dressCodeNote.slice(0, 100) : null,
+      source: "ai",
+      provider: result.provider,
+      model: result.model,
+    });
+  } catch {
+    return {
+      ...createDeterministicFallbackInvitationCopy(input),
+      source: "fallback",
+      provider: result.provider,
+      model: result.model,
+    };
+  }
 }
 
 export function createDeterministicFallbackLetterHelper(
@@ -935,41 +985,51 @@ export function createDeterministicFallbackLetterHelper(
 
 export async function getLetterHelper(
   input: LetterHelperPromptInput,
-  modelOverride?: LanguageModel,
+  options?: LanguageModel | ChainCallOptions,
 ): Promise<LetterHelperResponse> {
-  const modelId = process.env.AI_MODEL || DEFAULT_AI_MODEL;
+  const { modelOverride, byok, customChain } = parseCallOptions(options);
 
-  try {
-    const model = modelOverride || getModel();
-    const prompt = buildLetterHelperPrompt(input);
+  const result = await executeWithChain({
+    toolName: "getLetterHelper",
+    schema: aiLetterHelperResponseSchema,
+    systemPrompt: LETTER_HELPER_SYSTEM_PROMPT,
+    prompt: buildLetterHelperPrompt(input),
+    maxOutputTokens: 1000,
+    byok,
+    customChain,
+    modelResolverOverride: modelOverride ? () => modelOverride : undefined,
+    fallbackGenerator: () => createDeterministicFallbackLetterHelper(input),
+  });
 
-    const result = await generateText({
-      model,
-      output: Output.object({
-        schema: aiLetterHelperResponseSchema,
-      }),
-      system: LETTER_HELPER_SYSTEM_PROMPT,
-      prompt,
-      maxOutputTokens: 1000,
-      abortSignal: AbortSignal.timeout(15000),
-    });
-
-    if (result.output && Array.isArray(result.output.structureOutline) && result.output.structureOutline.length >= 2) {
-      return letterHelperResponseSchema.parse({
-        structureOutline: result.output.structureOutline.slice(0, 5).map((s) => ({
-          sectionTitle: s.sectionTitle.slice(0, 80),
-          guidancePrompt: s.guidancePrompt.slice(0, 250),
-          exampleStarter: s.exampleStarter.slice(0, 250),
-        })),
-        suggestedClosing: result.output.suggestedClosing.slice(0, 120),
-        source: "ai",
-      });
-    }
-  } catch (err) {
-    logAiFailure("getLetterHelper", modelId, err);
+  if (result.source === "fallback" || !result.output) {
+    return {
+      ...createDeterministicFallbackLetterHelper(input),
+      source: "fallback",
+      provider: result.provider,
+      model: result.model,
+    };
   }
 
-  return createDeterministicFallbackLetterHelper(input);
+  try {
+    return letterHelperResponseSchema.parse({
+      structureOutline: result.output.structureOutline.slice(0, 5).map((s) => ({
+        sectionTitle: s.sectionTitle.slice(0, 80),
+        guidancePrompt: s.guidancePrompt.slice(0, 250),
+        exampleStarter: s.exampleStarter.slice(0, 250),
+      })),
+      suggestedClosing: result.output.suggestedClosing.slice(0, 120),
+      source: "ai",
+      provider: result.provider,
+      model: result.model,
+    });
+  } catch {
+    return {
+      ...createDeterministicFallbackLetterHelper(input),
+      source: "fallback",
+      provider: result.provider,
+      model: result.model,
+    };
+  }
 }
 
 export const BLEND_QUESTIONS_SYSTEM_PROMPT =
@@ -1060,28 +1120,26 @@ export function createDeterministicFallbackBlendQuestions(
 
 export async function generateBlendQuestions(
   input: BlendQuestionsPromptInput,
-  modelOverride?: LanguageModel,
+  options?: LanguageModel | ChainCallOptions,
 ): Promise<BlendQuestion[]> {
-  const modelId = process.env.AI_MODEL || DEFAULT_AI_MODEL;
+  const { modelOverride, byok, customChain } = parseCallOptions(options);
 
-  try {
-    const model = modelOverride || getModel();
-    const prompt = buildBlendQuestionsPrompt(input);
+  const result = await executeWithChain({
+    toolName: "generateBlendQuestions",
+    schema: aiBlendQuestionsResponseSchema,
+    systemPrompt: BLEND_QUESTIONS_SYSTEM_PROMPT,
+    prompt: buildBlendQuestionsPrompt(input),
+    maxOutputTokens: 1500,
+    byok,
+    customChain,
+    modelResolverOverride: modelOverride ? () => modelOverride : undefined,
+    fallbackGenerator: () => ({ questions: createDeterministicFallbackBlendQuestions(input) }),
+  });
 
-    const result = await generateText({
-      model,
-      output: Output.object({
-        schema: aiBlendQuestionsResponseSchema,
-      }),
-      system: BLEND_QUESTIONS_SYSTEM_PROMPT,
-      prompt,
-      maxOutputTokens: 1500,
-      abortSignal: AbortSignal.timeout(15000),
-    });
-
-    if (result.output && Array.isArray(result.output.questions) && result.output.questions.length >= 3) {
+  if (result.source === "ai" && result.output && Array.isArray((result.output as { questions: unknown[] }).questions)) {
+    try {
       const parsed = blendQuestionsResponseSchema.parse({
-        questions: result.output.questions.slice(0, 5).map((q) => ({
+        questions: (result.output as { questions: Array<{ key: string; category: string; title: string; subtitle: string; options: Array<{ value: string; label: string; description: string }> }> }).questions.slice(0, 5).map((q) => ({
           key: q.key.toLowerCase().replace(/[^a-z0-9_]/g, "_").slice(0, 80),
           category: q.category.slice(0, 80),
           title: q.title.slice(0, 150),
@@ -1092,11 +1150,14 @@ export async function generateBlendQuestions(
             description: o.description.slice(0, 300),
           })),
         })),
+        source: "ai",
+        provider: result.provider,
+        model: result.model,
       });
       return parsed.questions;
+    } catch {
+      // Fall through to fallback
     }
-  } catch (err) {
-    logAiFailure("generateBlendQuestions", modelId, err);
   }
 
   return createDeterministicFallbackBlendQuestions(input);

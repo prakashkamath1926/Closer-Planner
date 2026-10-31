@@ -103,6 +103,8 @@ export const proposeIdeasResponseSchema = z.object({
   generalWhy: z.string().max(300).optional(),
   source: z.enum(["ai", "fallback"]).default("ai"),
   fallbackReason: z.string().optional(),
+  provider: z.string().optional(),
+  model: z.string().optional(),
 });
 
 export type ProposeIdeasResponse = z.infer<typeof proposeIdeasResponseSchema>;
@@ -160,6 +162,8 @@ export const proposeTradeoffsResponseSchema = z.object({
   analysisSummary: z.string().max(400).optional(),
   source: z.enum(["ai", "fallback"]).default("ai"),
   fallbackReason: z.string().optional(),
+  provider: z.string().optional(),
+  model: z.string().optional(),
 });
 
 export type ProposeTradeoffsResponse = z.infer<typeof proposeTradeoffsResponseSchema>;
@@ -178,18 +182,18 @@ export const aiRecipientFactSchema = z.object({
   key: z.string(),
   value: z.string(),
   status: z.string(),
-  source: z.string().nullable(),
+  source: z.string().nullable().optional(),
 });
 
 export const aiProposedPlanItemSchema = z.object({
   title: z.string(),
   category: z.string(),
-  intentTag: z.string().nullable(),
-  why: z.string().nullable(),
+  intentTag: z.string().nullable().optional(),
+  why: z.string().nullable().optional(),
   estimatedCost: z.number(),
   costStatus: z.string(),
   isNonNegotiable: z.boolean(),
-  planB: z.string().nullable(),
+  planB: z.string().nullable().optional(),
 });
 
 export const aiCelebrationIdeaSchema = z.object({
@@ -209,18 +213,18 @@ export const aiCelebrationIdeaSchema = z.object({
 
 export const aiProposeIdeasResponseSchema = z.object({
   ideas: z.array(aiCelebrationIdeaSchema),
-  generalWhy: z.string().nullable(),
+  generalWhy: z.string().nullable().optional(),
 });
 
 export const aiTradeoffModifiedItemSchema = z.object({
   id: z.string(),
-  title: z.string().nullable(),
-  estimatedCost: z.number().nullable(),
-  costStatus: z.string().nullable(),
-  dueAt: z.string().nullable(),
-  dependsOn: z.array(z.string()).nullable(),
-  intentTag: z.string().nullable(),
-  why: z.string().nullable(),
+  title: z.string().nullable().optional(),
+  estimatedCost: z.number().nullable().optional(),
+  costStatus: z.string().nullable().optional(),
+  dueAt: z.string().nullable().optional(),
+  dependsOn: z.array(z.string()).nullable().optional(),
+  intentTag: z.string().nullable().optional(),
+  why: z.string().nullable().optional(),
 });
 
 export const aiTradeoffOptionSchema = z.object({
@@ -236,7 +240,7 @@ export const aiTradeoffOptionSchema = z.object({
 
 export const aiProposeTradeoffsResponseSchema = z.object({
   options: z.array(aiTradeoffOptionSchema),
-  analysisSummary: z.string().nullable(),
+  analysisSummary: z.string().nullable().optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -259,6 +263,8 @@ export type QuoteFields = z.infer<typeof quoteFieldsSchema>;
 export const parseQuoteResponseSchema = z.object({
   quoteFields: quoteFieldsSchema,
   source: z.enum(["ai", "fallback"]),
+  provider: z.string().optional(),
+  model: z.string().optional(),
 });
 
 export type ParseQuoteResponse = z.infer<typeof parseQuoteResponseSchema>;
@@ -282,6 +288,8 @@ export const vendorQuestionsResponseSchema = z.object({
   category: z.string(),
   questions: z.array(z.string()).min(2).max(6),
   source: z.enum(["ai", "fallback"]),
+  provider: z.string().optional(),
+  model: z.string().optional(),
 });
 
 export type VendorQuestionsResponse = z.infer<typeof vendorQuestionsResponseSchema>;
@@ -298,7 +306,10 @@ export const invitationCopySchema = z.object({
   headline: z.string().min(1).max(120),
   subheading: z.string().max(150),
   invitationBody: z.string().min(1).max(400),
-  dressCodeNote: z.string().max(100).optional(),
+  dressCodeNote: z.string().max(100).nullable().optional(),
+  source: z.enum(["ai", "fallback"]).default("ai"),
+  provider: z.string().optional(),
+  model: z.string().optional(),
 });
 
 export type InvitationCopy = z.infer<typeof invitationCopySchema>;
@@ -313,6 +324,8 @@ export const letterHelperResponseSchema = z.object({
   structureOutline: z.array(letterHelperPromptSectionSchema).min(2).max(5),
   suggestedClosing: z.string().max(120),
   source: z.enum(["ai", "fallback"]),
+  provider: z.string().optional(),
+  model: z.string().optional(),
 });
 
 export type LetterHelperResponse = z.infer<typeof letterHelperResponseSchema>;
@@ -321,7 +334,7 @@ export const aiInvitationCopySchema = z.object({
   headline: z.string(),
   subheading: z.string(),
   invitationBody: z.string(),
-  dressCodeNote: z.string().nullable(),
+  dressCodeNote: z.string().nullable().optional(),
 });
 
 export const aiLetterHelperPromptSectionSchema = z.object({
@@ -354,6 +367,9 @@ export const blendQuestionSchema = z.object({
 
 export const blendQuestionsResponseSchema = z.object({
   questions: z.array(blendQuestionSchema).min(3).max(6),
+  source: z.enum(["ai", "fallback"]).default("ai"),
+  provider: z.string().optional(),
+  model: z.string().optional(),
 });
 
 export const aiBlendQuestionOptionSchema = z.object({

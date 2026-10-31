@@ -31,6 +31,45 @@ export type PublicEnv = z.infer<typeof publicSchema>;
 // ---------------------------------------------------------------------------
 // Server-only schema
 // ---------------------------------------------------------------------------
+export type SupportedProvider = "groq" | "google" | "compat";
+
+export interface ChainEntry {
+  provider: SupportedProvider;
+  model: string;
+}
+
+export const DEFAULT_AI_MODEL_CHAIN =
+  "groq:openai/gpt-oss-20b,groq:openai/gpt-oss-120b,google:gemini-3.1-flash-lite";
+
+export function parseModelChain(chainStr: string): ChainEntry[] {
+  if (!chainStr || typeof chainStr !== "string") return [];
+  const entries: ChainEntry[] = [];
+  const parts = chainStr.split(",").map((s) => s.trim()).filter(Boolean);
+  for (const part of parts) {
+    const colonIdx = part.indexOf(":");
+    if (colonIdx === -1) continue;
+    const provider = part.slice(0, colonIdx).toLowerCase().trim();
+    const model = part.slice(colonIdx + 1).trim();
+    if ((provider === "groq" || provider === "google" || provider === "compat") && model) {
+      entries.push({ provider, model });
+    }
+  }
+  return entries;
+}
+
+export function isCompatConfigured(env: {
+  COMPAT_BASE_URL?: string;
+  COMPAT_API_KEY?: string;
+  COMPAT_LABEL?: string;
+}): boolean {
+  return Boolean(
+    env.COMPAT_BASE_URL &&
+    env.COMPAT_BASE_URL.startsWith("https://") &&
+    env.COMPAT_API_KEY &&
+    env.COMPAT_LABEL
+  );
+}
+
 const serverSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z
     .string({ error: "SUPABASE_SERVICE_ROLE_KEY is required" })
@@ -41,19 +80,34 @@ const serverSchema = z.object({
   GROQ_API_KEY: z
     .string()
     .optional(),
+  COMPAT_BASE_URL: z
+    .string()
+    .url({ error: "COMPAT_BASE_URL must be a valid URL" })
+    .refine((url) => url.startsWith("https://"), { message: "COMPAT_BASE_URL must use HTTPS" })
+    .optional(),
+  COMPAT_API_KEY: z.string().min(1).optional(),
+  COMPAT_LABEL: z.string().min(1).optional(),
+  AI_MODEL_CHAIN: z
+    .string()
+    .min(1)
+    .default(DEFAULT_AI_MODEL_CHAIN)
+    .refine(
+      (val) => parseModelChain(val).length > 0,
+      { message: "AI_MODEL_CHAIN must contain at least one valid provider:model entry" }
+    ),
   APP_BASE_URL: z
     .string()
     .url({ error: "APP_BASE_URL must be a valid URL" })
     .default("http://localhost:3000"),
 }).refine(
-  (data) => Boolean(data.GOOGLE_GENERATIVE_AI_API_KEY || data.GROQ_API_KEY),
-  { message: "Either GOOGLE_GENERATIVE_AI_API_KEY or GROQ_API_KEY must be provided" }
+  (data) => Boolean(data.GOOGLE_GENERATIVE_AI_API_KEY || data.GROQ_API_KEY || isCompatConfigured(data)),
+  { message: "Either GOOGLE_GENERATIVE_AI_API_KEY, GROQ_API_KEY, or complete COMPAT provider must be configured" }
 );
 
 export type ServerEnv = z.infer<typeof serverSchema>;
 
 // ---------------------------------------------------------------------------
-// AI-only schema — reads strictly provider credentials and model ID.
+// AI-only schema — reads strictly provider credentials and model chain.
 // Does NOT require Supabase or other unrelated infrastructure variables.
 // ---------------------------------------------------------------------------
 export const DEFAULT_AI_MODEL = "openai/gpt-oss-20b";
@@ -62,11 +116,26 @@ const aiEnvSchema = z
   .object({
     GROQ_API_KEY: z.string().min(1, { message: "GROQ_API_KEY must not be empty" }).optional(),
     GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1, { message: "GOOGLE_GENERATIVE_AI_API_KEY must not be empty" }).optional(),
+    COMPAT_BASE_URL: z
+      .string()
+      .url({ message: "COMPAT_BASE_URL must be a valid URL" })
+      .refine((url) => url.startsWith("https://"), { message: "COMPAT_BASE_URL must use HTTPS" })
+      .optional(),
+    COMPAT_API_KEY: z.string().min(1).optional(),
+    COMPAT_LABEL: z.string().min(1).optional(),
+    AI_MODEL_CHAIN: z
+      .string()
+      .min(1)
+      .default(DEFAULT_AI_MODEL_CHAIN)
+      .refine(
+        (val) => parseModelChain(val).length > 0,
+        { message: "AI_MODEL_CHAIN must contain at least one valid provider:model entry" }
+      ),
     AI_MODEL: z.string().min(1).default(DEFAULT_AI_MODEL),
   })
   .refine(
-    (data) => Boolean(data.GROQ_API_KEY || data.GOOGLE_GENERATIVE_AI_API_KEY),
-    { message: "Either GROQ_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY must be configured in .env.local" }
+    (data) => Boolean(data.GROQ_API_KEY || data.GOOGLE_GENERATIVE_AI_API_KEY || isCompatConfigured(data)),
+    { message: "Either GROQ_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY, or complete COMPAT provider must be configured in .env.local" }
   );
 
 export type AiEnv = z.infer<typeof aiEnvSchema>;
@@ -79,6 +148,10 @@ export function getAiEnv(): AiEnv {
   const result = aiEnvSchema.safeParse({
     GROQ_API_KEY: process.env.GROQ_API_KEY,
     GOOGLE_GENERATIVE_AI_API_KEY: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+    COMPAT_BASE_URL: process.env.COMPAT_BASE_URL,
+    COMPAT_API_KEY: process.env.COMPAT_API_KEY,
+    COMPAT_LABEL: process.env.COMPAT_LABEL,
+    AI_MODEL_CHAIN: process.env.AI_MODEL_CHAIN || DEFAULT_AI_MODEL_CHAIN,
     AI_MODEL: process.env.AI_MODEL || DEFAULT_AI_MODEL,
   });
 

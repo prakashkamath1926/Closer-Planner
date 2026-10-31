@@ -194,6 +194,23 @@ export function PlanView({
     }));
   }, [items]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        "closer_last_occasion",
+        JSON.stringify({
+          id: occasion.id,
+          title: occasion.title,
+          recipient_name: occasion.recipient_name,
+          event_at: occasion.event_at,
+          occasion_type: occasion.occasion_type,
+        }),
+      );
+    } catch {
+      // Ignore
+    }
+  }, [occasion.id, occasion.title, occasion.recipient_name, occasion.event_at, occasion.occasion_type]);
+
   const readiness = useMemo(() => {
     return categorizeTaskReadiness(timelineItems);
   }, [timelineItems]);

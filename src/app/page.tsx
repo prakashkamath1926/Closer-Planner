@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { BotanicalSprig } from "@/components/botanical";
 import { Reveal } from "@/components/reveal";
 import { StatusTag } from "@/components/status-tag";
@@ -38,6 +39,9 @@ export default function Home() {
               <a href="#intake">Start planning</a>
             </Button>
             <Button asChild variant="secondary" size="lg">
+              <Link href="/plans">My plans</Link>
+            </Button>
+            <Button asChild variant="ghost" size="lg">
               <a href="#how-it-works">See how it works</a>
             </Button>
           </div>

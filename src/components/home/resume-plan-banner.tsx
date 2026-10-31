@@ -22,10 +22,54 @@ export function ResumePlanHero() {
     fetch("/api/user/occasions")
       .then((res) => (res.ok ? res.json() : { occasions: [] }))
       .then((data) => {
-        setOccasions(data.occasions || []);
+        if (data.occasions && data.occasions.length > 0) {
+          setOccasions(data.occasions);
+        } else {
+          try {
+            const raw = localStorage.getItem("closer_last_occasion");
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (parsed?.id && parsed?.title) {
+                setOccasions([
+                  {
+                    id: parsed.id,
+                    title: parsed.title,
+                    occasion_type: parsed.occasion_type || "celebration",
+                    recipient_name: parsed.recipient_name || null,
+                    event_at: parsed.event_at || null,
+                    status: "planning",
+                    updated_at: new Date().toISOString(),
+                  },
+                ]);
+              }
+            }
+          } catch {
+            // Ignore
+          }
+        }
       })
       .catch(() => {
-        setOccasions([]);
+        try {
+          const raw = localStorage.getItem("closer_last_occasion");
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed?.id && parsed?.title) {
+              setOccasions([
+                {
+                  id: parsed.id,
+                  title: parsed.title,
+                  occasion_type: parsed.occasion_type || "celebration",
+                  recipient_name: parsed.recipient_name || null,
+                  event_at: parsed.event_at || null,
+                  status: "planning",
+                  updated_at: new Date().toISOString(),
+                },
+              ]);
+            }
+          }
+        } catch {
+          // Ignore
+        }
       })
       .finally(() => {
         setLoading(false);
@@ -88,3 +132,4 @@ export function ResumePlanHero() {
     </div>
   );
 }
+

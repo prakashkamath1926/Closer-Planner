@@ -35,7 +35,7 @@ npm run dev                  # http://localhost:3000
 
 ## Environment variables
 
-See `.env.example`. `SUPABASE_SERVICE_ROLE_KEY` and `GOOGLE_GENERATIVE_AI_API_KEY` are server-only and must never be prefixed with `NEXT_PUBLIC_`.
+See `.env.example`. `SUPABASE_SERVICE_ROLE_KEY`, `GROQ_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `AI_MODEL_CHAIN`, `COMPAT_BASE_URL`, `COMPAT_API_KEY`, and `COMPAT_LABEL` are server-only and must never be prefixed with `NEXT_PUBLIC_`.
 
 ## Database
 

@@ -47,6 +47,23 @@ export async function POST(req: NextRequest) {
 
     if (updateError) {
       console.error("Upgrade error:", updateError);
+      const isEmailConflict =
+        updateError.message?.toLowerCase().includes("already registered") ||
+        updateError.message?.toLowerCase().includes("already exists") ||
+        updateError.message?.toLowerCase().includes("updating user") ||
+        updateError.status === 422 ||
+        updateError.status === 500;
+
+      if (isEmailConflict) {
+        return NextResponse.json(
+          {
+            error: "An account with this email already exists. Please sign in to access your plans.",
+            code: "email_exists",
+          },
+          { status: 409 },
+        );
+      }
+
       return NextResponse.json(
         { error: updateError.message || "Failed to upgrade account." },
         { status: 400 },
