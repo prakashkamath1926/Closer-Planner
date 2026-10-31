@@ -1,13 +1,12 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { z } from "zod";
 import { MockLanguageModelV4 } from "ai/test";
 import {
   executeWithChain,
   categorizeError,
-  setEntryCooldown,
   isEntryInCooldown,
   clearAllCooldowns,
-  defaultModelResolver,
 } from "@/lib/ai/router";
 import { isCompatConfigured, parseModelChain } from "@/lib/env";
 
