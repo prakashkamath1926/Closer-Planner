@@ -5,8 +5,20 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
-import { navLinkClasses, signOutLinkClasses } from "./nav-links";
+import {
+  navLinkClasses,
+  signOutLinkClasses,
+  compactPrimaryButtonClasses,
+} from "./nav-links";
 import { SavePlanModal } from "@/components/auth/save-plan-modal";
+
+/** Normalises name for display (first letter capital, rest lower) in pure code */
+function normalizeName(name: string): string {
+  if (!name) return "";
+  const cleaned = name.trim();
+  if (!cleaned) return "";
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1).toLowerCase();
+}
 
 export function AuthStatus() {
   const router = useRouter();
@@ -55,21 +67,21 @@ export function AuthStatus() {
       user.user_metadata?.full_name ||
       user.user_metadata?.name ||
       "";
-    const firstName = rawName.trim()
+    const rawFirstName = rawName.trim()
       ? rawName.trim().split(/\s+/)[0]
       : (user.email?.split("@")[0] || "Friend");
-    const initial = (firstName[0] || "U").toUpperCase();
+    const normalizedFirstName = normalizeName(rawFirstName);
+    const initial = (normalizedFirstName[0] || "U").toUpperCase();
 
     return (
       <div className="flex items-center gap-2">
-        <span className="flex items-center gap-2 text-sm font-medium text-plum">
-          <span
-            className="grid size-7 place-items-center rounded-full bg-blush text-xs font-semibold text-rose-deep shrink-0 select-none"
-            aria-hidden="true"
-          >
-            {initial}
-          </span>
-          <span className="max-w-[120px] truncate">{firstName}</span>
+        <span
+          role="img"
+          aria-label={`Signed in as ${normalizedFirstName}`}
+          title={`Signed in as ${normalizedFirstName}`}
+          className="grid size-7 place-items-center rounded-full bg-blush text-xs font-semibold text-rose-deep shrink-0 select-none cursor-default"
+        >
+          {initial}
         </span>
         <button
           type="button"
@@ -88,14 +100,14 @@ export function AuthStatus() {
   if (user?.is_anonymous) {
     return (
       <>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
           <Link href="/login" className={navLinkClasses}>
             Sign in
           </Link>
           <button
             type="button"
             onClick={() => setShowSaveModal(true)}
-            className={navLinkClasses}
+            className={compactPrimaryButtonClasses}
           >
             Save your plan
           </button>
@@ -115,4 +127,3 @@ export function AuthStatus() {
     </Link>
   );
 }
-

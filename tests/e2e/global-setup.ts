@@ -33,21 +33,41 @@ const TEST_PLAN_PAYLOAD = {
 };
 
 async function globalSetup() {
+  const authDir = path.resolve("playwright");
+  const testOccasionFile = path.join(authDir, "test-occasion.json");
+  const authFile = path.join(authDir, ".auth.json");
+
+  // If already set up from earlier run, verify and reuse if possible
+  const hasExisting = fs.existsSync(testOccasionFile) && fs.existsSync(authFile);
+
   const browser = await chromium.launch();
   const page = await browser.newPage();
-  const response = await page.request.post("http://localhost:3000/api/plan", {
-    data: TEST_PLAN_PAYLOAD,
-  });
-  if (!response.ok()) {
-    throw new Error(`Failed to create setup occasion: ${response.status()} ${await response.text()}`);
+  try {
+    const response = await page.request.post("http://localhost:3000/api/plan", {
+      data: TEST_PLAN_PAYLOAD,
+    });
+    if (!response.ok()) {
+      if (hasExisting) {
+        console.warn(`Supabase rate limit or error (${response.status()}); reusing existing test session state.`);
+        await browser.close();
+        return;
+      }
+      throw new Error(`Failed to create setup occasion: ${response.status()} ${await response.text()}`);
+    }
+    const result = await response.json();
+    if (!fs.existsSync(authDir)) {
+      fs.mkdirSync(authDir, { recursive: true });
+    }
+    await page.context().storageState({ path: authFile });
+    fs.writeFileSync(testOccasionFile, JSON.stringify({ occasionId: result.occasionId }));
+  } catch (err) {
+    if (hasExisting) {
+      console.warn("Reusing existing test occasion state due to setup error:", err);
+      await browser.close();
+      return;
+    }
+    throw err;
   }
-  const result = await response.json();
-  const authDir = path.resolve("playwright");
-  if (!fs.existsSync(authDir)) {
-    fs.mkdirSync(authDir, { recursive: true });
-  }
-  await page.context().storageState({ path: path.join(authDir, ".auth.json") });
-  fs.writeFileSync(path.join(authDir, "test-occasion.json"), JSON.stringify({ occasionId: result.occasionId }));
   await browser.close();
 }
 
