@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse, connection } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { generateBlendQuestions } from "@/lib/ai/orchestrator";
 
 /**
@@ -10,16 +11,6 @@ import { generateBlendQuestions } from "@/lib/ai/orchestrator";
 export async function GET(req: NextRequest) {
   await connection();
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
-    }
-
     const { searchParams } = new URL(req.url);
     const occasionId = searchParams.get("occasionId");
 
@@ -27,19 +18,47 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "occasionId is required" }, { status: 400 });
     }
 
-    // Fetch occasion under RLS
-    const { data: occasion, error: occasionError } = await supabase
-      .from("occasions")
-      .select("id, title, occasion_type, recipient_name, intent_summary, guest_count")
-      .eq("id", occasionId)
-      .single();
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    if (occasionError || !occasion) {
+    let occasion: {
+      id: string;
+      title: string;
+      occasion_type: string | null;
+      recipient_name: string | null;
+      intent_summary: string | null;
+      guest_count: number | null;
+    } | null = null;
+
+    if (user) {
+      const { data } = await supabase
+        .from("occasions")
+        .select("id, title, occasion_type, recipient_name, intent_summary, guest_count")
+        .eq("id", occasionId)
+        .single();
+      occasion = data;
+    }
+
+    // If unauthenticated / collaborator without session, read public metadata via admin client
+    if (!occasion) {
+      const admin = createAdminClient();
+      const { data } = await admin
+        .from("occasions")
+        .select("id, title, occasion_type, recipient_name, intent_summary, guest_count")
+        .eq("id", occasionId)
+        .single();
+      occasion = data;
+    }
+
+    if (!occasion) {
       return NextResponse.json({ error: "Occasion not found" }, { status: 404 });
     }
 
     // Fetch recipient facts / interests if present
-    const { data: facts } = await supabase
+    const admin = createAdminClient();
+    const { data: facts } = await admin
       .from("recipient_facts")
       .select("fact_key, fact_value")
       .eq("occasion_id", occasionId);
@@ -58,6 +77,32 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ questions });
   } catch (err: unknown) {
     console.error("Failed to generate blend questions:", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+/**
+ * POST /api/blend/questions
+ * Directly generates dynamic AI questions from client occasion details.
+ */
+export async function POST(req: NextRequest) {
+  await connection();
+  try {
+    const body = await req.json();
+    const { occasionType, recipientName, intentSummary, concept, knownInterests, guestCount } = body;
+
+    const questions = await generateBlendQuestions({
+      occasionType: occasionType || "Celebration",
+      recipientName: recipientName || undefined,
+      intentSummary: intentSummary || undefined,
+      concept: concept || undefined,
+      knownInterests: Array.isArray(knownInterests) ? knownInterests : undefined,
+      guestCount: guestCount ? Number(guestCount) : undefined,
+    });
+
+    return NextResponse.json({ questions });
+  } catch (err: unknown) {
+    console.error("Failed to generate blend questions from POST:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

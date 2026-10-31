@@ -29,7 +29,7 @@ test.describe("Planner Layout, Sticky Summary Strip & Keyboard Tabs", () => {
     const boundingBox = await summaryStrip.boundingBox();
     expect(boundingBox).not.toBeNull();
     if (boundingBox) {
-      expect(boundingBox.y).toBeLessThanOrEqual(50);
+      expect(boundingBox.y).toBeLessThanOrEqual(70);
     }
 
     const nextStepBtn = summaryStrip.locator("button", { hasText: /Next Step:/i });

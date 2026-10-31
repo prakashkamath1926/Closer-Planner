@@ -28,28 +28,24 @@ export async function POST(req: NextRequest) {
     });
 
     if (createError) {
-      // If user already exists (e.g. from earlier failed signup), update and confirm it
       if (
         createError.message?.toLowerCase().includes("already registered") ||
         createError.message?.toLowerCase().includes("already exists") ||
+        createError.code === "email_exists" ||
         createError.status === 422
       ) {
-        // List users to find the existing unconfirmed account
-        const { data: list } = await admin.auth.admin.listUsers();
-        const existing = list?.users?.find((u) => u.email?.toLowerCase() === email.toLowerCase());
-        if (existing) {
-          await admin.auth.admin.updateUserById(existing.id, {
-            password,
-            email_confirm: true,
-            user_metadata: { full_name: fullName },
-          });
-          return NextResponse.json({ success: true, autoConfirmed: true });
-        }
+        return NextResponse.json(
+          {
+            error: "An account with this email already exists. Please sign in instead.",
+            code: "email_exists",
+          },
+          { status: 409 },
+        );
       }
 
       console.error("Signup error:", createError);
       return NextResponse.json(
-        { error: "Unable to create account. Please try again." },
+        { error: createError.message || "Unable to create account. Please try again." },
         { status: 400 },
       );
     }
@@ -60,3 +56,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
+

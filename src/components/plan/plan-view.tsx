@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useMemo, useRef, useEffect } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   History,
@@ -29,7 +28,6 @@ import {
 } from "@/lib/engine/timeline";
 import { calculateEventCountdown } from "@/lib/engine/countdown";
 import { computeNextStep, type PlannerTab } from "@/lib/engine/next-step";
-import { APP_NAME } from "@/lib/brand";
 import { BudgetBar } from "./budget-bar";
 import { ChangeModal } from "./change-modal";
 import { TradeoffSelector } from "./tradeoff-selector";
@@ -39,8 +37,6 @@ import { VendorSection } from "./vendor-section";
 import { CalendarView } from "./calendar-view";
 import { InvitationSection } from "./invitation-section";
 import { BlendScreen } from "./blend-screen";
-import { SavePlanModal } from "@/components/auth/save-plan-modal";
-import { createClient } from "@/lib/supabase/browser";
 import { ClientDateTime } from "@/components/client-date-time";
 import type { ProposeTradeoffsResponse } from "@/lib/ai/schemas";
 
@@ -73,6 +69,8 @@ export interface OccasionRecord {
   urgency_mode: string;
   status: string;
   recipient_name?: string | null;
+  occasion_type?: string | null;
+  intent_summary?: string | null;
   is_surprise?: boolean;
 }
 
@@ -169,21 +167,6 @@ export function PlanView({
   const [activeFilter, setActiveFilter] = useState<"all" | "active" | "fallbacks" | "done">("all");
   const [isChangeModalOpen, setIsChangeModalOpen] = useState(false);
   const [isVersionDrawerOpen, setIsVersionDrawerOpen] = useState(false);
-  const [isAnonymous, setIsAnonymous] = useState(false);
-  const [isSavePlanOpen, setIsSavePlanOpen] = useState(false);
-
-  useEffect(() => {
-    try {
-      const supabase = createClient();
-      supabase.auth.getUser().then(({ data: { user } }) => {
-        if (user && user.is_anonymous) {
-          setIsAnonymous(true);
-        }
-      });
-    } catch {
-      // In tests or mock environments without supabase credentials
-    }
-  }, []);
 
   const [proposedTradeoffs, setProposedTradeoffs] = useState<ProposeTradeoffsResponse | null>(null);
   const [newConstraints, setNewConstraints] = useState<{
@@ -357,41 +340,6 @@ export function PlanView({
 
   return (
     <div className="min-h-screen bg-paper pb-24">
-      {/* Top Header */}
-      <header className="border-b border-blush bg-paper">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              className="text-xs sm:text-sm font-semibold text-mauve hover:text-plum transition-colors"
-            >
-              &larr; {APP_NAME}
-            </Link>
-            <span className="text-mauve/40">/</span>
-            <span className="text-xs sm:text-sm font-medium text-plum truncate max-w-[200px]">
-              {occasion.title}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {isAnonymous && (
-              <button
-                type="button"
-                onClick={() => setIsSavePlanOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-full bg-rose/10 px-3 py-1 text-xs font-semibold text-rose hover:bg-rose/20 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-rose transition-colors"
-                title="Save your plan with email or Google to keep your work safe"
-              >
-                <Lock className="h-3 w-3" aria-hidden="true" />
-                <span>Save your plan</span>
-              </button>
-            )}
-            <span className="inline-flex items-center rounded-full bg-peach/40 px-2.5 py-0.5 text-xs font-medium text-plum capitalize">
-              {currentUrgency.replace("_", " ")}
-            </span>
-          </div>
-        </div>
-      </header>
-
       {/* Sticky Summary Strip (docks cleanly below 4rem top header) */}
       <section
         id="sticky-summary-strip"
@@ -454,18 +402,6 @@ export function PlanView({
 
           {/* Right: Primary Next Step + Global Action Controls */}
           <div className="flex items-center gap-2">
-            {isAnonymous && (
-              <button
-                type="button"
-                onClick={() => setIsSavePlanOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-full bg-peach/70 px-3 py-1.5 text-xs sm:text-sm font-semibold text-plum hover:bg-peach border border-rose/20 shadow-xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-rose transition-colors"
-                title="Save your plan with email or Google to keep your work safe"
-              >
-                <Lock className="h-3.5 w-3.5 text-rose" aria-hidden="true" />
-                <span>Save plan</span>
-              </button>
-            )}
-
             {/* Primary Next Step Button */}
             <button
               type="button"
@@ -948,14 +884,6 @@ export function PlanView({
         onVersionRestored={() => {
           window.location.reload();
         }}
-      />
-
-      {/* Save Plan Modal (Upgrade anonymous user) */}
-      <SavePlanModal
-        isOpen={isSavePlanOpen}
-        onClose={() => setIsSavePlanOpen(false)}
-        occasionId={occasion.id}
-        onUpgraded={() => setIsAnonymous(false)}
       />
     </div>
   );

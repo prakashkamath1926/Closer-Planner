@@ -1,8 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { X, Calendar, Sparkles } from "lucide-react";
 import type { ProposeTradeoffsResponse } from "@/lib/ai/schemas";
+
+const emptySubscribe = () => () => {};
 
 interface ChangeModalProps {
   isOpen: boolean;
@@ -45,8 +48,9 @@ export function ChangeModal({
   const [isLoading, setIsLoading] = useState(false);
   const [isDirectSaving, setIsDirectSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isClient = useSyncExternalStore(emptySubscribe, () => true, () => false);
 
-  if (!isOpen) return null;
+  if (!isOpen || !isClient) return null;
 
   const handleDirectSave = async () => {
     setIsDirectSaving(true);
@@ -128,9 +132,9 @@ export function ChangeModal({
     }
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 overflow-y-auto bg-plum/40 p-4 backdrop-blur-xs sm:p-6">
-      <div className="flex min-h-full items-center justify-center py-6 sm:py-10 text-center">
+      <div className="flex min-h-full items-start sm:items-center justify-center p-4 py-8 sm:py-12 text-center">
         <div className="relative my-auto w-full max-w-lg rounded-3xl border border-blush bg-paper p-6 text-left shadow-xl sm:p-8">
           <div className="flex items-center justify-between border-b border-blush pb-4">
             <div className="flex items-center gap-2">
@@ -259,6 +263,7 @@ export function ChangeModal({
           </form>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

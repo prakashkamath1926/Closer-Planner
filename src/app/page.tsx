@@ -3,6 +3,7 @@ import { Reveal } from "@/components/reveal";
 import { StatusTag } from "@/components/status-tag";
 import { Button } from "@/components/ui/button";
 import { IntakeFlow } from "@/components/intake/intake-flow";
+import { ResumePlanHero } from "@/components/home/resume-plan-banner";
 
 const steps = [
   {
@@ -40,6 +41,8 @@ export default function Home() {
               <a href="#how-it-works">See how it works</a>
             </Button>
           </div>
+
+          <ResumePlanHero />
         </Reveal>
 
         <Reveal delay={0.1} className="mx-auto w-full max-w-xs">

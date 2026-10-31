@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { X, Lock, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/browser";
@@ -13,6 +14,8 @@ interface SavePlanModalProps {
   onUpgraded?: () => void;
 }
 
+const emptySubscribe = () => () => {};
+
 export function SavePlanModal({ isOpen, onClose, occasionId, onUpgraded }: SavePlanModalProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -21,8 +24,9 @@ export function SavePlanModal({ isOpen, onClose, occasionId, onUpgraded }: SaveP
   const [isSuccess, setIsSuccess] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [isGooglePending, setIsGooglePending] = useState(false);
+  const isClient = useSyncExternalStore(emptySubscribe, () => true, () => false);
 
-  if (!isOpen) return null;
+  if (!isOpen || !isClient) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,14 +114,14 @@ export function SavePlanModal({ isOpen, onClose, occasionId, onUpgraded }: SaveP
     }
   };
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="save-plan-title"
       className="fixed inset-0 z-50 overflow-y-auto bg-plum/40 p-4 backdrop-blur-xs sm:p-6"
     >
-      <div className="flex min-h-full items-center justify-center py-6 sm:py-10 text-center">
+      <div className="flex min-h-full items-start sm:items-center justify-center p-4 py-8 sm:py-12 text-center">
         <div className="relative my-auto w-full max-w-md rounded-3xl border border-blush bg-white p-6 text-left shadow-xl sm:p-8">
         <button
           type="button"
@@ -279,6 +283,7 @@ export function SavePlanModal({ isOpen, onClose, occasionId, onUpgraded }: SaveP
         )}
       </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

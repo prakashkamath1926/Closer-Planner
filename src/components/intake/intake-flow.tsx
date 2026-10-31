@@ -17,6 +17,38 @@ import { EntryPath, CelebrationIdea, IntakeRequest, UrgencyMode } from "@/lib/ai
 import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
 import { IdeasScreen } from "./ideas-screen";
 
+function mergeTranscripts(existing: string, addition: string, separator: string = " "): string {
+  const t = existing.trim();
+  const a = addition.trim();
+  if (!t) return a;
+  if (!a) return t;
+
+  if (a.toLowerCase().startsWith(t.toLowerCase())) {
+    return a;
+  }
+  if (t.toLowerCase().endsWith(a.toLowerCase())) {
+    return t;
+  }
+  if (t.toLowerCase().includes(a.toLowerCase())) {
+    return t;
+  }
+
+  const wordsA = a.split(/\s+/);
+  const wordsT = t.split(/\s+/);
+
+  const maxOverlap = Math.min(wordsT.length, wordsA.length);
+  for (let len = maxOverlap; len > 0; len--) {
+    const suffix = wordsT.slice(-len).join(" ").toLowerCase();
+    const prefix = wordsA.slice(0, len).join(" ").toLowerCase();
+    if (suffix === prefix) {
+      const nonOverlapping = wordsA.slice(len).join(" ");
+      return nonOverlapping ? `${t} ${nonOverlapping}` : t;
+    }
+  }
+
+  return `${t}${separator}${a}`;
+}
+
 export function IntakeFlow() {
   const [entryPath, setEntryPath] = useState<EntryPath>("discover");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -59,19 +91,9 @@ export function IntakeFlow() {
       if (!clean) return;
 
       if (entryPath === "have_idea") {
-        setConcept((prev) => {
-          const trimmed = prev.trim();
-          if (!trimmed) return clean;
-          if (trimmed.endsWith(clean)) return trimmed;
-          return `${trimmed} ${clean}`;
-        });
+        setConcept((prev) => mergeTranscripts(prev, clean, " "));
       } else {
-        setKnownInterests((prev) => {
-          const trimmed = prev.trim();
-          if (!trimmed) return clean;
-          if (trimmed.endsWith(clean)) return trimmed;
-          return `${trimmed}, ${clean}`;
-        });
+        setKnownInterests((prev) => mergeTranscripts(prev, clean, ", "));
       }
     },
   });
@@ -162,7 +184,7 @@ export function IntakeFlow() {
                   <X className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
               </div>
-              <p className="mt-2 text-xs text-mauve leading-relaxed">
+              <p className="mt-2 text-xs font-medium text-plum leading-relaxed">
                 Speech is processed by your browser; we only store the text.
               </p>
             </div>
@@ -680,10 +702,13 @@ export function IntakeFlow() {
             type="button"
             disabled={isSubmitting}
             onClick={handleGenerate}
-            className="w-full rounded-full bg-rose py-3 text-center text-sm font-semibold text-white shadow-sm hover:bg-roseDeep transition-colors disabled:opacity-50"
+            className="w-full rounded-full bg-rose py-3 text-center text-sm font-semibold text-white shadow-sm hover:bg-rose-deep transition-colors disabled:opacity-50"
           >
             {isSubmitting ? "Generating 3 curated celebration directions..." : "Generate Celebration Ideas"}
           </button>
+          <p className="mt-2.5 text-center text-xs text-mauve">
+            Speech is processed by your browser; we only store the text.
+          </p>
         </div>
       </div>
     </div>

@@ -166,12 +166,12 @@ function logAiFailure(tool: string, modelId: string, error: unknown) {
  */
 export function getModel(modelIdOverride?: string): LanguageModel {
   const env = getAiEnv();
-  const modelId = modelIdOverride || env.AI_MODEL || DEFAULT_AI_MODEL;
 
   if (env.GROQ_API_KEY) {
     const groq = createGroq({
       apiKey: env.GROQ_API_KEY,
     });
+    const modelId = modelIdOverride || env.AI_MODEL || "llama-3.3-70b-versatile";
     return groq(modelId);
   }
 
@@ -179,6 +179,7 @@ export function getModel(modelIdOverride?: string): LanguageModel {
     const google = createGoogleGenerativeAI({
       apiKey: env.GOOGLE_GENERATIVE_AI_API_KEY,
     });
+    const modelId = modelIdOverride || env.AI_MODEL || "gemini-2.0-flash";
     return google(modelId);
   }
 

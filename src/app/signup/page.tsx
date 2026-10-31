@@ -123,7 +123,17 @@ function SignupForm() {
             aria-live="assertive"
             className="mt-4 rounded-xl border border-rose/30 bg-blush/30 p-3 text-center text-xs font-medium text-rose-deep"
           >
-            {errorMessage}
+            <span>{errorMessage}</span>
+            {errorMessage.toLowerCase().includes("already exists") && (
+              <div className="mt-1">
+                <Link
+                  href={`/login?next=${encodeURIComponent(nextParam)}`}
+                  className="font-bold underline hover:text-plum"
+                >
+                  Sign in to your account &rarr;
+                </Link>
+              </div>
+            )}
           </div>
         )}
 

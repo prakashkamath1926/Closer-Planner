@@ -108,10 +108,26 @@ export function BlendScreen({ occasion }: BlendScreenProps) {
     async function loadAiQuestions() {
       try {
         setIsAiLoading(true);
-        const res = await fetch(`/api/blend/questions?occasionId=${occasion.id}`);
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!ignore && data.questions && Array.isArray(data.questions) && data.questions.length >= 3) {
+        let res = await fetch(`/api/blend/questions?occasionId=${occasion.id}`);
+        let data = res.ok ? await res.json() : null;
+
+        if (!data?.questions || !Array.isArray(data.questions) || data.questions.length < 3) {
+          res = await fetch("/api/blend/questions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              concept: occasion.title,
+              recipientName: occasion.recipient_name,
+              occasionType: occasion.occasion_type,
+              intentSummary: occasion.intent_summary,
+            }),
+          });
+          if (res.ok) {
+            data = await res.json();
+          }
+        }
+
+        if (!ignore && data?.questions && Array.isArray(data.questions) && data.questions.length >= 3) {
           setQuestions(data.questions);
         }
       } catch {
@@ -125,7 +141,7 @@ export function BlendScreen({ occasion }: BlendScreenProps) {
     return () => {
       ignore = true;
     };
-  }, [occasion.id, occasion.title, occasion.recipient_name]);
+  }, [occasion.id, occasion.title, occasion.recipient_name, occasion.occasion_type, occasion.intent_summary]);
 
   // Load existing session if saved
   useEffect(() => {
@@ -298,7 +314,7 @@ export function BlendScreen({ occasion }: BlendScreenProps) {
             <span className="text-[10px] uppercase tracking-wider text-rose-deep">Step 1</span>
             <div className="text-xs font-semibold">Your Answers (Organizer)</div>
           </div>
-          <span className="font-mono text-xs">{Object.keys(organizerAnswers).length}/6</span>
+          <span className="font-mono text-xs">{Object.keys(organizerAnswers).length}/{questions.length}</span>
         </button>
 
         <button
@@ -314,7 +330,7 @@ export function BlendScreen({ occasion }: BlendScreenProps) {
             <span className="text-[10px] uppercase tracking-wider text-purple-700">Step 2</span>
             <div className="text-xs font-semibold">{friendName}&apos;s Answers (Friend)</div>
           </div>
-          <span className="font-mono text-xs">{Object.keys(friendAnswers).length}/6</span>
+          <span className="font-mono text-xs">{Object.keys(friendAnswers).length}/{questions.length}</span>
         </button>
 
         <button

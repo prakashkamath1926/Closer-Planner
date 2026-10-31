@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import {
@@ -22,9 +22,12 @@ function normalizeName(name: string): string {
 
 export function AuthStatus() {
   const router = useRouter();
+  const pathname = usePathname();
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
+
+  const occasionId = pathname?.startsWith("/plan/") ? pathname.split("/")[2] : undefined;
 
   useEffect(() => {
     try {
@@ -75,6 +78,9 @@ export function AuthStatus() {
 
     return (
       <div className="flex items-center gap-2">
+        <Link href="/plans" className={navLinkClasses}>
+          My plans
+        </Link>
         <span
           role="img"
           aria-label={`Signed in as ${normalizedFirstName}`}
@@ -101,6 +107,9 @@ export function AuthStatus() {
     return (
       <>
         <div className="flex items-center gap-2">
+          <Link href="/plans" className={navLinkClasses}>
+            My plans
+          </Link>
           <Link href="/login" className={navLinkClasses}>
             Sign in
           </Link>
@@ -115,6 +124,7 @@ export function AuthStatus() {
         <SavePlanModal
           isOpen={showSaveModal}
           onClose={() => setShowSaveModal(false)}
+          occasionId={occasionId}
         />
       </>
     );
