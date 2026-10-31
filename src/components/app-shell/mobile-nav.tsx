@@ -6,6 +6,7 @@ import { Menu, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import type { NavLink } from "./nav-links";
+import { navLinkClasses } from "./nav-links";
 import { AuthStatus } from "./auth-status";
 
 export function MobileNav({ links }: { links: NavLink[] }) {
@@ -38,7 +39,7 @@ export function MobileNav({ links }: { links: NavLink[] }) {
           {open && (
             <motion.nav
               id={panelId}
-              aria-label="Primary"
+              aria-label="Mobile Navigation"
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
@@ -51,7 +52,7 @@ export function MobileNav({ links }: { links: NavLink[] }) {
                     <a
                       href={link.href}
                       onClick={() => setOpen(false)}
-                      className="flex min-h-11 items-center rounded-2xl px-4 text-base font-medium text-plum hover:bg-blush"
+                      className={`${navLinkClasses} w-full min-h-11 justify-start px-4`}
                     >
                       {link.label}
                     </a>

@@ -22,7 +22,7 @@ const steps = [
 export default function Home() {
   return (
     <>
-      <section className="mx-auto grid w-full max-w-6xl items-center gap-10 px-4 py-12 sm:px-6 md:grid-cols-[1.4fr_1fr] md:py-20">
+      <section className="relative mx-auto grid w-full max-w-6xl min-h-[calc(100svh-4rem)] items-center gap-8 px-4 py-8 sm:px-6 md:grid-cols-[1.4fr_1fr] md:gap-12 md:py-12">
         <Reveal>
           <p className="font-hand text-2xl text-rose-deep">A little something just for them</p>
           <h1 className="mt-2 text-4xl sm:text-5xl">
@@ -49,7 +49,10 @@ export default function Home() {
         </Reveal>
       </section>
 
-      <section id="intake" className="w-full scroll-mt-12 bg-blush/30 py-8 border-y border-blush/50">
+      <section
+        id="intake"
+        className="relative w-full scroll-mt-16 bg-gradient-to-b from-paper via-blush/20 to-blush/30 pt-10 pb-12 border-b border-blush/40"
+      >
         <IntakeFlow />
       </section>
 
