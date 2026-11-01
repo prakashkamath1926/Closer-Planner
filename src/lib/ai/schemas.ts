@@ -21,19 +21,102 @@ export type UrgencyMode = z.infer<typeof urgencyModeEnum>;
 
 export const intakeRequestSchema = z.object({
   entryPath: entryPathEnum,
-  occasionType: z.string().min(1).max(100).default("birthday"),
-  recipientName: z.string().max(100).optional().nullable(),
-  relationship: z.string().max(100).optional().nullable(),
-  intentSummary: z.string().max(500).optional().nullable(),
-  concept: z.string().max(1000).optional().nullable(),
-  budgetTotal: z.number().nonnegative().optional().nullable(),
-  currency: z.string().length(3).default("INR"),
-  guestCount: z.number().int().nonnegative().optional().nullable(),
-  eventAt: z.string().optional().nullable(),
+  occasionType: z
+    .preprocess((val) => {
+      if (typeof val === "string" && val.trim().length > 0) {
+        return val.trim().slice(0, 100);
+      }
+      return "Celebration";
+    }, z.string().min(1).max(100))
+    .default("Celebration"),
+  recipientName: z
+    .preprocess((val) => {
+      if (typeof val === "string") {
+        const trimmed = val.trim();
+        return trimmed.length > 0 ? trimmed.slice(0, 100) : undefined;
+      }
+      return val;
+    }, z.string().max(100).optional().nullable()),
+  relationship: z
+    .preprocess((val) => {
+      if (typeof val === "string") {
+        const trimmed = val.trim();
+        return trimmed.length > 0 ? trimmed.slice(0, 100) : undefined;
+      }
+      return val;
+    }, z.string().max(100).optional().nullable()),
+  intentSummary: z
+    .preprocess((val) => {
+      if (typeof val === "string") {
+        const trimmed = val.trim();
+        return trimmed.length > 0 ? trimmed.slice(0, 500) : undefined;
+      }
+      return val;
+    }, z.string().max(500).optional().nullable()),
+  concept: z
+    .preprocess((val) => {
+      if (typeof val === "string") {
+        const trimmed = val.trim();
+        return trimmed.length > 0 ? trimmed.slice(0, 1000) : undefined;
+      }
+      return val;
+    }, z.string().max(1000).optional().nullable()),
+  budgetTotal: z
+    .preprocess((val) => {
+      if (val === "" || val === null || val === undefined) return undefined;
+      const num = Number(val);
+      return isNaN(num) ? undefined : Math.max(0, num);
+    }, z.number().nonnegative().optional().nullable()),
+  currency: z
+    .preprocess((val) => {
+      if (typeof val === "string" && val.trim().length > 0) {
+        return val.trim().toUpperCase().slice(0, 3);
+      }
+      return "INR";
+    }, z.string().length(3))
+    .default("INR"),
+  guestCount: z
+    .preprocess((val) => {
+      if (val === "" || val === null || val === undefined) return undefined;
+      const num = Number(val);
+      return isNaN(num) ? undefined : Math.max(0, Math.floor(num));
+    }, z.number().int().nonnegative().optional().nullable()),
+  eventAt: z
+    .preprocess((val) => {
+      if (typeof val === "string") {
+        const trimmed = val.trim();
+        return trimmed.length > 0 ? trimmed : undefined;
+      }
+      return val;
+    }, z.string().optional().nullable()),
   urgencyMode: urgencyModeEnum.default("weeks_away"),
   isSurprise: z.boolean().default(false),
-  avoidNotes: z.string().max(500).optional().nullable(),
-  knownInterests: z.array(z.string().max(100)).max(10).optional().default([]),
+  avoidNotes: z
+    .preprocess((val) => {
+      if (typeof val === "string") {
+        const trimmed = val.trim();
+        return trimmed.length > 0 ? trimmed.slice(0, 500) : undefined;
+      }
+      return val;
+    }, z.string().max(500).optional().nullable()),
+  knownInterests: z
+    .preprocess((val) => {
+      if (typeof val === "string") {
+        return val
+          .split(",")
+          .map((s) => s.trim().slice(0, 100))
+          .filter(Boolean)
+          .slice(0, 10);
+      }
+      if (Array.isArray(val)) {
+        return val
+          .map((s) => (typeof s === "string" ? s.trim().slice(0, 100) : ""))
+          .filter(Boolean)
+          .slice(0, 10);
+      }
+      return [];
+    }, z.array(z.string().max(100)).max(10))
+    .default([]),
 });
 
 export type IntakeRequest = z.infer<typeof intakeRequestSchema>;

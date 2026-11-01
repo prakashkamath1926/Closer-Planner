@@ -37,8 +37,12 @@ export function getStoredByok(): StoredByokConfig | null {
         model: parsed.model || (parsed.provider === "groq" ? "openai/gpt-oss-20b" : "gemini-3.1-flash-lite"),
       };
     }
+    // If raw was present but failed validation, clear it cleanly without breaking the default flow
+    console.warn("[BYOK] Cleared invalid saved BYOK state from session storage");
+    clearStoredByok();
   } catch {
-    // Ignore JSON parse errors
+    console.warn("[BYOK] Cleared malformed saved BYOK state from session storage");
+    clearStoredByok();
   }
   return null;
 }

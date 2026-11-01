@@ -109,6 +109,89 @@ describe("AI Router & Chain Execution", () => {
       expect(loggedText).toContain("401");
     });
 
+    it("Rule 2b: provider 400 error (unsupported feature/model) triggers fallback without surfacing a 400 to client", async () => {
+      let callCount = 0;
+      const model400 = new MockLanguageModelV4({
+        doGenerate: async () => {
+          callCount++;
+          const err = new Error("HTTP 400: Model or feature not supported");
+          (err as any).status = 400;
+          throw err;
+        },
+      });
+
+      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const result = await executeWithChain({
+        toolName: "testTool400",
+        schema: testSchema,
+        systemPrompt: "sys",
+        prompt: "user prompt",
+        customChain: [{ provider: "groq", model: "openai/gpt-oss-20b" }],
+        modelResolverOverride: () => model400,
+        fallbackGenerator: () => ({ greeting: "fallback-from-400", count: 400 }),
+      });
+
+      // No retry on 400
+      expect(callCount).toBe(1);
+      // Cooldown set
+      expect(isEntryInCooldown("groq", "openai/gpt-oss-20b")).toBe(true);
+      // Returns fallback result (source: fallback) instead of throwing or surfacing 400
+      expect(result.source).toBe("fallback");
+      expect(result.output).toEqual({ greeting: "fallback-from-400", count: 400 });
+
+      // Verifies sanitized metadata logging
+      const loggedText = consoleSpy.mock.calls.map((c) => c.join(" ")).join(" ");
+      expect(loggedText).toContain("400");
+      expect(loggedText).toContain("openai/gpt-oss-20b");
+      expect(loggedText).not.toContain("user prompt");
+    });
+
+    it("BYOK failure never silently falls back to our server keys", async () => {
+      const failingByokModel = new MockLanguageModelV4({
+        doGenerate: async () => {
+          throw new Error("401 Unauthorized BYOK key invalid");
+        },
+      });
+
+      let serverKeyAttempted = false;
+      const serverModel = new MockLanguageModelV4({
+        doGenerate: async () => {
+          serverKeyAttempted = true;
+          return {
+            rawCall: { rawPrompt: null, rawSettings: {} },
+            finishReason: { unified: "stop", raw: "stop" },
+            usage: { inputTokens: 10, outputTokens: 10, totalTokens: 20 },
+            content: [{ type: "text", text: JSON.stringify({ greeting: "server-key-leaked", count: 1 }) }],
+            warnings: [],
+          } as any;
+        },
+      });
+
+      const result = await executeWithChain({
+        toolName: "testByokIsolation",
+        schema: testSchema,
+        systemPrompt: "sys",
+        prompt: "user prompt",
+        byok: {
+          provider: "groq",
+          apiKey: "gsk_user_custom_key",
+          model: "openai/gpt-oss-20b",
+        },
+        modelResolverOverride: (entry) => {
+          if (entry.model === "openai/gpt-oss-20b") return failingByokModel;
+          return serverModel;
+        },
+        fallbackGenerator: () => ({ greeting: "byok-fallback-safe", count: 0 }),
+      });
+
+      // Server key MUST NOT be called
+      expect(serverKeyAttempted).toBe(false);
+      // Fallback returned
+      expect(result.source).toBe("fallback");
+      expect(result.output).toEqual({ greeting: "byok-fallback-safe", count: 0 });
+    });
+
     it("Rule 3: Zod validation failure retries once before failing to next entry", async () => {
       let callCount = 0;
       const invalidModel = new MockLanguageModelV4({

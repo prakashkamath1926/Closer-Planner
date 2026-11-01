@@ -116,8 +116,15 @@ describe.skipIf(!RUN)(
         liveSupabaseAvailable = true;
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
-        if (msg.includes("fetch failed") || msg.includes("ENOTFOUND") || msg.includes("ECONNREFUSED")) {
-          console.warn("Live Supabase unreachable (sandbox or offline). Skipping live RLS suite.");
+        if (
+          msg.includes("fetch failed") ||
+          msg.includes("ENOTFOUND") ||
+          msg.includes("ECONNREFUSED") ||
+          msg.includes("rate limit") ||
+          msg.includes("Rate limit") ||
+          msg.includes("rate_limit")
+        ) {
+          console.warn("Live Supabase unreachable or rate limited. Skipping live RLS suite.");
           return;
         }
         throw err;

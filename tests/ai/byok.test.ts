@@ -57,4 +57,17 @@ describe("BYOK (Bring Your Own Key) security & extraction", () => {
     const byok = extractByokFromHeaders(headers);
     expect(byok).toBeNull();
   });
+
+  it("extracts from x-ai-provider and x-ai-key headers for compatibility", () => {
+    const headers = new Headers({
+      "x-ai-provider": "groq",
+      "x-ai-key": "gsk_compat_12345",
+      "x-ai-model": "openai/gpt-oss-20b",
+    });
+
+    const byok = extractByokFromHeaders(headers);
+    expect(byok).not.toBeNull();
+    expect(byok?.provider).toBe("groq");
+    expect(byok?.apiKey).toBe("gsk_compat_12345");
+  });
 });

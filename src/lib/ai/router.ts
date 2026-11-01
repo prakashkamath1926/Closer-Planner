@@ -41,9 +41,9 @@ export interface ByokConfig {
 
 export function extractByokFromHeaders(headers: Headers): ByokConfig | null {
   try {
-    const provider = headers.get("x-byok-provider")?.toLowerCase().trim();
-    const apiKey = headers.get("x-byok-key")?.trim();
-    const model = headers.get("x-byok-model")?.trim();
+    const provider = (headers.get("x-byok-provider") || headers.get("x-ai-provider"))?.toLowerCase().trim();
+    const apiKey = (headers.get("x-byok-key") || headers.get("x-ai-key"))?.trim();
+    const model = (headers.get("x-byok-model") || headers.get("x-ai-model"))?.trim();
 
     if ((provider === "groq" || provider === "google") && apiKey && apiKey.length > 0) {
       return {
@@ -273,13 +273,12 @@ export async function executeWithChain<T>(
 
   let activeChain: ChainEntry[] = [];
 
-  // If BYOK session key is provided, try user's provider/model first!
+  // If BYOK session key is provided, try ONLY user's provider/model.
+  // Rule: Never silently fall back to our server key on a failed BYOK request.
   if (byok?.apiKey && (byok.provider === "groq" || byok.provider === "google")) {
     const userModel = byok.model || (byok.provider === "groq" ? "openai/gpt-oss-20b" : "gemini-3.1-flash-lite");
-    activeChain.push({ provider: byok.provider, model: userModel });
-  }
-
-  if (customChain && customChain.length > 0) {
+    activeChain = [{ provider: byok.provider, model: userModel }];
+  } else if (customChain && customChain.length > 0) {
     activeChain = activeChain.concat(customChain);
   } else if (modelResolverOverride) {
     activeChain = [{ provider: "groq", model: "override" }];

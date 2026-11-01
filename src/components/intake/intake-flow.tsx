@@ -15,6 +15,7 @@ import Link from "next/link";
 import { Check, Mic, MicOff, Info, X } from "lucide-react";
 import { EntryPath, CelebrationIdea, IntakeRequest, UrgencyMode } from "@/lib/ai/schemas";
 import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
+import { getByokHeaders } from "@/lib/ai/byok-client";
 import { IdeasScreen } from "./ideas-screen";
 
 function mergeTranscripts(existing: string, addition: string, separator: string = " "): string {
@@ -221,22 +222,23 @@ export function IntakeFlow() {
   const buildPayload = (): IntakeRequest => {
     return {
       entryPath,
-      occasionType: occasionType.trim() || "Celebration",
-      recipientName: recipientName.trim() || undefined,
-      relationship: relationship.trim() || undefined,
-      intentSummary: intentSummary.trim() || undefined,
-      concept: concept.trim() || undefined,
-      budgetTotal: budgetTotal && budgetTotal > 0 ? budgetTotal : undefined,
-      currency,
-      guestCount: guestCount && guestCount > 0 ? guestCount : undefined,
+      occasionType: (occasionType.trim() || "Celebration").slice(0, 100),
+      recipientName: recipientName.trim().slice(0, 100) || undefined,
+      relationship: relationship.trim().slice(0, 100) || undefined,
+      intentSummary: intentSummary.trim().slice(0, 500) || undefined,
+      concept: concept.trim().slice(0, 1000) || undefined,
+      budgetTotal: typeof budgetTotal === "number" && !isNaN(budgetTotal) ? Math.max(0, budgetTotal) : undefined,
+      currency: currency.slice(0, 3) || "INR",
+      guestCount: typeof guestCount === "number" && !isNaN(guestCount) ? Math.max(0, Math.floor(guestCount)) : undefined,
       eventAt: eventAt ? eventAt : undefined,
       urgencyMode,
       isSurprise,
-      avoidNotes: avoidNotes.trim() || undefined,
+      avoidNotes: avoidNotes.trim().slice(0, 500) || undefined,
       knownInterests: knownInterests
         .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
+        .map((s) => s.trim().slice(0, 100))
+        .filter(Boolean)
+        .slice(0, 10),
     };
   };
 
@@ -246,22 +248,49 @@ export function IntakeFlow() {
 
     try {
       const payload = buildPayload();
+      const byokHeaders = getByokHeaders();
       const res = await fetch("/api/intake", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...byokHeaders,
+        },
         body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
         if (res.status === 429) {
-          const data = await res.json();
+          const data = await res.json().catch(() => ({}));
           setErrorMessage(
             data.message || "Rate limit reached. Please wait a minute before requesting more ideas.",
           );
           setIsSubmitting(false);
           return;
         }
-        throw new Error(`Generation request failed (HTTP ${res.status})`);
+
+        // Parse error body for a friendly + field-specific message (never echo values or keys)
+        let errMsg = `Generation request failed (HTTP ${res.status})`;
+        try {
+          const errBody = await res.json();
+          const rawFields = Array.isArray(errBody?.fields)
+            ? errBody.fields
+            : Array.isArray(errBody?.details)
+              ? errBody.details.map((d: { path?: (string | number)[]; message?: string }) =>
+                  d.path && d.path.length > 0 ? d.path.join(".") : "input"
+                )
+              : [];
+
+          if (rawFields.length > 0) {
+            const uniqueFields = Array.from(new Set(rawFields)).join(", ");
+            errMsg = `Invalid input on: ${uniqueFields}. Please check the highlighted fields and try again.`;
+          } else if (errBody?.error && typeof errBody.error === "string") {
+            errMsg = errBody.error;
+          }
+        } catch {
+          // If body parsing fails, preserve generic status error
+        }
+
+        throw new Error(errMsg);
       }
 
       const data = await res.json();

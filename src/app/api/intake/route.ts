@@ -36,9 +36,16 @@ export async function POST(req: NextRequest) {
     const parseResult = intakeRequestSchema.safeParse(body);
 
     if (!parseResult.success) {
+      // Log fields (types/paths only, never values) for diagnosis
+      const invalidFieldPaths = Array.from(
+        new Set(parseResult.error.issues.map((i) => (i.path.length > 0 ? i.path.join(".") : "request")))
+      );
+      console.error("[/api/intake] Zod validation failed:", JSON.stringify(invalidFieldPaths));
       return NextResponse.json(
         {
           error: "Invalid intake request",
+          code: "validation_error",
+          fields: invalidFieldPaths,
           details: parseResult.error.issues,
         },
         { status: 400 },

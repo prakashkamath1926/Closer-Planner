@@ -71,6 +71,61 @@ describe("ai/schemas: strict Zod schema validation", () => {
     ).toBe(false);
   });
 
+  it("sanitizes edge-case inputs without failing with HTTP 400", () => {
+    // 1. Long string in knownInterests is truncated to <= 100 chars
+    const res1 = intakeRequestSchema.safeParse({
+      entryPath: "discover",
+      knownInterests: ["A".repeat(150), "B".repeat(20)],
+    });
+    expect(res1.success).toBe(true);
+    if (res1.success) {
+      expect(res1.data.knownInterests.length).toBe(2);
+      expect(res1.data.knownInterests[0].length).toBe(100);
+    }
+
+    // 2. Comma-separated string for knownInterests is parsed and capped to 10 items
+    const res2 = intakeRequestSchema.safeParse({
+      entryPath: "discover",
+      knownInterests: "item1, item2, item3, item4, item5, item6, item7, item8, item9, item10, item11, item12",
+    });
+    expect(res2.success).toBe(true);
+    if (res2.success) {
+      expect(res2.data.knownInterests.length).toBe(10);
+    }
+
+    // 3. String numbers for budgetTotal and guestCount are coerced
+    const res3 = intakeRequestSchema.safeParse({
+      entryPath: "have_idea",
+      budgetTotal: "60000",
+      guestCount: "25",
+    });
+    expect(res3.success).toBe(true);
+    if (res3.success) {
+      expect(res3.data.budgetTotal).toBe(60000);
+      expect(res3.data.guestCount).toBe(25);
+    }
+
+    // 4. Currency is sanitized to uppercase 3-letter code
+    const res4 = intakeRequestSchema.safeParse({
+      entryPath: "have_idea",
+      currency: "inr",
+    });
+    expect(res4.success).toBe(true);
+    if (res4.success) {
+      expect(res4.data.currency).toBe("INR");
+    }
+
+    // 5. Concept longer than 1000 characters is safely truncated
+    const res5 = intakeRequestSchema.safeParse({
+      entryPath: "have_idea",
+      concept: "C".repeat(1200),
+    });
+    expect(res5.success).toBe(true);
+    if (res5.success) {
+      expect(res5.data.concept?.length).toBe(1000);
+    }
+  });
+
   it("validates fact labels strictly as known, possible, or needs_confirmation", () => {
     const validIdea = {
       id: "idea-1",
