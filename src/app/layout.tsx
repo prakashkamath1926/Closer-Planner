@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import Script from "next/script";
 import { Suspense } from "react";
 import "./globals.css";
 import { Footer } from "@/components/app-shell/footer";
@@ -51,7 +52,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${fraunces.variable} ${dmSans.variable} ${caveat.variable} h-full antialiased`}
     >
       <head>
-        <script
+        <Script
+          id="zod-jitless"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: "globalThis.__zod_globalConfig={jitless:true};",
           }}
