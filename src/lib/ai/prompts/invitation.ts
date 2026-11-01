@@ -27,13 +27,17 @@ RULES:
    - dressCodeNote: 3-6 words (e.g. "Festive & comfortable attire").
 4. Output valid JSON adhering to the provided schema.`;
 
+function sanitize(text?: string | null): string {
+  return (text || "").replace(/<\/?user_data>/gi, "");
+}
+
 export function buildInvitationCopyPrompt(input: InvitationPromptInput): string {
   const parts: string[] = [];
   parts.push("<user_data>");
-  parts.push(`Recipient Name: ${input.recipientName}`);
-  parts.push(`Occasion Type: ${input.occasionType}`);
+  parts.push(`Recipient Name: ${sanitize(input.recipientName)}`);
+  parts.push(`Occasion Type: ${sanitize(input.occasionType)}`);
   if (input.intentSummary) {
-    parts.push(`Desired Feeling/Theme: ${input.intentSummary}`);
+    parts.push(`Desired Feeling/Theme: ${sanitize(input.intentSummary)}`);
   }
   parts.push("</user_data>");
   parts.push(
@@ -69,13 +73,13 @@ RULES:
 export function buildLetterHelperPrompt(input: LetterHelperPromptInput): string {
   const parts: string[] = [];
   parts.push("<user_data>");
-  parts.push(`Recipient Name: ${input.recipientName}`);
-  parts.push(`Occasion Type: ${input.occasionType}`);
+  parts.push(`Recipient Name: ${sanitize(input.recipientName)}`);
+  parts.push(`Occasion Type: ${sanitize(input.occasionType)}`);
   if (input.relationship) {
-    parts.push(`Relationship: ${input.relationship}`);
+    parts.push(`Relationship: ${sanitize(input.relationship)}`);
   }
   if (input.intentSummary) {
-    parts.push(`Celebration Intent: ${input.intentSummary}`);
+    parts.push(`Celebration Intent: ${sanitize(input.intentSummary)}`);
   }
   parts.push("</user_data>");
   parts.push(

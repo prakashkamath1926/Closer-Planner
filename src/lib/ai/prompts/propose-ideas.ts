@@ -33,24 +33,28 @@ RULES:
 9. Keep descriptions, whys, and titles concise, crisp, and direct (under 2 sentences each) to ensure clean, complete structured output.
 10. STRUCTURE: The "ideas" field MUST be a JSON array of idea objects: [{"id": "idea-1", ...}, {"id": "idea-2", ...}, {"id": "idea-3", ...}]. Never output "ideas" as a key-value object map.`;
 
+function sanitize(text?: string | null): string {
+  return (text || "").replace(/<\/?user_data>/gi, "");
+}
+
 export function buildProposeIdeasUserPrompt(input: IntakeRequest): string {
   const parts: string[] = [];
 
   parts.push("<user_data>");
-  parts.push(`Entry Path: ${input.entryPath}`);
-  parts.push(`Occasion Type: ${input.occasionType}`);
-  if (input.recipientName) parts.push(`Recipient Name: ${input.recipientName}`);
-  if (input.relationship) parts.push(`Relationship: ${input.relationship}`);
-  if (input.intentSummary) parts.push(`Intent / Desired Feeling: ${input.intentSummary}`);
-  if (input.concept) parts.push(`Initial Concept / Notes: ${input.concept}`);
-  if (input.budgetTotal) parts.push(`Budget: ${input.currency} ${input.budgetTotal}`);
+  parts.push(`Entry Path: ${sanitize(input.entryPath)}`);
+  parts.push(`Occasion Type: ${sanitize(input.occasionType)}`);
+  if (input.recipientName) parts.push(`Recipient Name: ${sanitize(input.recipientName)}`);
+  if (input.relationship) parts.push(`Relationship: ${sanitize(input.relationship)}`);
+  if (input.intentSummary) parts.push(`Intent / Desired Feeling: ${sanitize(input.intentSummary)}`);
+  if (input.concept) parts.push(`Initial Concept / Notes: ${sanitize(input.concept)}`);
+  if (input.budgetTotal) parts.push(`Budget: ${sanitize(input.currency)} ${input.budgetTotal}`);
   if (input.guestCount !== undefined && input.guestCount !== null) parts.push(`Guest Count: ${input.guestCount}`);
-  if (input.eventAt) parts.push(`Target Event Date/Time: ${input.eventAt}`);
-  parts.push(`Urgency Mode: ${input.urgencyMode}`);
+  if (input.eventAt) parts.push(`Target Event Date/Time: ${sanitize(input.eventAt)}`);
+  parts.push(`Urgency Mode: ${sanitize(input.urgencyMode)}`);
   parts.push(`Is Surprise: ${input.isSurprise ? "Yes" : "No"}`);
-  if (input.avoidNotes) parts.push(`Dislikes / Dietary / Avoid: ${input.avoidNotes}`);
+  if (input.avoidNotes) parts.push(`Dislikes / Dietary / Avoid: ${sanitize(input.avoidNotes)}`);
   if (input.knownInterests && input.knownInterests.length > 0) {
-    parts.push(`Known Interests: ${input.knownInterests.join(", ")}`);
+    parts.push(`Known Interests: ${input.knownInterests.map(sanitize).join(", ")}`);
   }
   parts.push("</user_data>");
 

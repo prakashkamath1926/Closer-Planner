@@ -44,33 +44,41 @@ export interface ProposeTradeoffsPromptInput {
   reason?: string;
 }
 
+function sanitize(text?: string | null): string {
+  return (text || "").replace(/<\/?user_data>/gi, "");
+}
+
 export function buildProposeTradeoffsUserPrompt(input: ProposeTradeoffsPromptInput): string {
   const parts: string[] = [];
   const affectedItems = input.affectedItems || [];
 
   parts.push("<user_data>");
-  parts.push(`Occasion: ${input.occasionTitle}`);
+  parts.push(`Occasion: ${sanitize(input.occasionTitle)}`);
   if (input.previousBudget && input.newBudget) {
-    parts.push(`Budget Change: Reduced from ${input.currency} ${input.previousBudget} to ${input.currency} ${input.newBudget}`);
+    parts.push(`Budget Change: Reduced from ${sanitize(input.currency)} ${input.previousBudget} to ${sanitize(input.currency)} ${input.newBudget}`);
     const nonNegTotal = affectedItems
       .filter((i) => i.isNonNegotiable)
       .reduce((sum, i) => sum + i.estimatedCost, 0);
     const maxForRemaining = Math.max(0, input.newBudget - nonNegTotal);
     parts.push(
-      `CRITICAL BUDGET CEILING: Total cost of all items in each proposed option must NOT exceed ${input.currency} ${input.newBudget}. Non-negotiable items total ${input.currency} ${nonNegTotal}, leaving at most ${input.currency} ${maxForRemaining} for remaining negotiable or added items.`,
+      `CRITICAL BUDGET CEILING: Total cost of all items in each proposed option must NOT exceed ${sanitize(input.currency)} ${input.newBudget}. Non-negotiable items total ${sanitize(input.currency)} ${nonNegTotal}, leaving at most ${sanitize(input.currency)} ${maxForRemaining} for remaining negotiable or added items.`,
     );
   }
   if (input.previousEventAt && input.newEventAt) {
-    parts.push(`Event Date Change: Moved earlier from ${input.previousEventAt} to ${input.newEventAt}`);
+    parts.push(`Event Date Change: Moved earlier from ${sanitize(input.previousEventAt)} to ${sanitize(input.newEventAt)}`);
   }
   if (input.reason) {
-    parts.push(`Reason for change: ${input.reason}`);
+    parts.push(`Reason for change: ${sanitize(input.reason)}`);
   }
 
   parts.push("\nAffected or relevant plan items:");
   for (const item of affectedItems) {
+    const safeTitle = sanitize(item.title);
+    const safeTag = item.intentTag ? sanitize(item.intentTag) : "none";
+    const safeDue = item.dueAt ? sanitize(item.dueAt) : "unspecified";
+    const safeDeps = (item.dependsOn || []).map(sanitize).join(", ");
     parts.push(
-      `- [${item.id}] "${item.title}" | Cost: ${input.currency} ${item.estimatedCost} | Tag: ${item.intentTag || "none"} | Non-negotiable: ${item.isNonNegotiable ? "yes" : "no"} | Due: ${item.dueAt || "unspecified"} | Depends on: [${(item.dependsOn || []).join(", ")}]`,
+      `- [${item.id}] "${safeTitle}" | Cost: ${sanitize(input.currency)} ${item.estimatedCost} | Tag: ${safeTag} | Non-negotiable: ${item.isNonNegotiable ? "yes" : "no"} | Due: ${safeDue} | Depends on: [${safeDeps}]`,
     );
   }
   parts.push("</user_data>");
