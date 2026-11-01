@@ -19,9 +19,19 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     const supabase = await createClient();
+
+    // Check pre-exchange session to identify anonymous user claiming an occasion
+    let anonId: string | null = null;
+    if (claimOccasionId) {
+      const { data: preAuthData } = await supabase.auth.getUser();
+      if (preAuthData?.user && preAuthData.user.is_anonymous) {
+        anonId = preAuthData.user.id;
+      }
+    }
+
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      if (claimOccasionId && data?.user) {
+      if (claimOccasionId && data?.user && anonId) {
         const isUuid =
           /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
             claimOccasionId,
@@ -32,7 +42,8 @@ export async function GET(request: NextRequest) {
             await admin
               .from("occasions")
               .update({ owner_id: data.user.id })
-              .eq("id", claimOccasionId);
+              .eq("id", claimOccasionId)
+              .eq("owner_id", anonId);
           } catch (claimErr) {
             console.error("Failed to claim occasion for user:", claimErr);
           }
