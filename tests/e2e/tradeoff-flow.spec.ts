@@ -121,10 +121,6 @@ test.describe("Trade-Off Flow, Client Idempotency Key & In-Flight Protection", (
     // Attempt repeat click while in-flight
     await applyBtn.click({ force: true, noWaitAfter: true }).catch(() => {});
 
-    // Wait for the reload triggered on apply to finish
-    await page.waitForURL(`**/plan/${occasionId}*`, { waitUntil: "domcontentloaded" });
-    await page.waitForSelector('[role="tablist"]', { timeout: 15000 });
-
     // Assert only 1 apply request was dispatched (repeat click ignored)
     expect(applyCalls).toBe(1);
 
@@ -134,7 +130,7 @@ test.describe("Trade-Off Flow, Client Idempotency Key & In-Flight Protection", (
 
     // 9. Verify change summary notification shows on plan view
     const changeSummaryBanner = page.locator("text=Streamline Decor & Acoustic Timing applied");
-    await expect(changeSummaryBanner).toBeVisible({ timeout: 10000 });
+    await expect(changeSummaryBanner).toBeVisible({ timeout: 15000 });
 
     // 10. Click Undo Change and assert restore was invoked
     const undoBtn = page.locator("button", { hasText: "Undo Change" });

@@ -183,15 +183,10 @@ export function PlanView({
     emptySubscribe,
     () => {
       try {
-        const stored = sessionStorage.getItem("last_applied_summary");
-        if (stored) {
-          sessionStorage.removeItem("last_applied_summary");
-          return stored;
-        }
+        return sessionStorage.getItem("last_applied_summary");
       } catch {
-        // Ignore storage exceptions
+        return null;
       }
-      return null;
     },
     () => null,
   );
@@ -356,6 +351,12 @@ export function PlanView({
   };
 
   const handleUndoRecent = async () => {
+    try {
+      sessionStorage.removeItem("last_applied_summary");
+    } catch {
+      // Ignore
+    }
+    setAppliedSummaryOverride(null);
     const targetVersionNo = versions.length > 0 ? versions[0].version_no : 1;
     try {
       const res = await fetch("/api/versions/restore", {
