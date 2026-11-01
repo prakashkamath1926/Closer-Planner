@@ -77,7 +77,7 @@ export async function GET(req: NextRequest) {
         .gt("expires_at", new Date().toISOString())
         .maybeSingle();
 
-      if (link && link.occasion_id === occasionId && (link.role === "friend" || link.role === "recipient")) {
+      if (link && link.occasion_id === occasionId && link.role === "friend") {
         isAuthorized = true;
       }
     }

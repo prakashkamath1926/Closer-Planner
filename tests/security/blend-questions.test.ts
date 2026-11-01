@@ -53,6 +53,9 @@ describe("GET /api/blend/questions Authorization & Token Gate", () => {
   const rawFriendToken = generateRawShareToken();
   const friendTokenHash = hashShareToken(rawFriendToken);
 
+  const rawRecipientToken = generateRawShareToken();
+  const recipientTokenHash = hashShareToken(rawRecipientToken);
+
   const rawRevokedToken = generateRawShareToken();
   const revokedTokenHash = hashShareToken(rawRevokedToken);
 
@@ -87,6 +90,22 @@ describe("GET /api/blend/questions Authorization & Token Gate", () => {
                       data: {
                         occasion_id: occasionId,
                         role: "friend",
+                        kind: "view",
+                        expires_at: new Date(Date.now() + 86400000).toISOString(),
+                        revoked_at: null,
+                      },
+                      error: null,
+                    }),
+                  };
+                }
+                if (val === recipientTokenHash) {
+                  return {
+                    is: vi.fn().mockReturnThis(),
+                    gt: vi.fn().mockReturnThis(),
+                    maybeSingle: vi.fn().mockResolvedValue({
+                      data: {
+                        occasion_id: occasionId,
+                        role: "recipient",
                         kind: "view",
                         expires_at: new Date(Date.now() + 86400000).toISOString(),
                         revoked_at: null,
@@ -227,6 +246,28 @@ describe("GET /api/blend/questions Authorization & Token Gate", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.questions).toBeDefined();
+  });
+
+  it("recipient token gets generic 404", async () => {
+    (createClient as any).mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }),
+      },
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: null, error: { message: "No session" } }),
+      }),
+    });
+
+    const req = new NextRequest(
+      `http://localhost:3000/api/blend/questions?occasionId=${occasionId}&token=${rawRecipientToken}`
+    );
+    const res = await GET(req);
+
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.error).toBe("Not found");
   });
 
   it("token for a different occasion -> 404", async () => {
