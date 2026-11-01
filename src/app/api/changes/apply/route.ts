@@ -13,6 +13,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createSnapshot } from "@/lib/engine/versions";
 import { tradeoffOptionSchema } from "@/lib/ai/schemas";
+import { parseJsonBody } from "@/lib/security/request";
 import type { Database, Json } from "@/lib/supabase/database.types";
 
 const applyChangeRequestSchema = z.object({
@@ -36,7 +37,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
 
-    const body = await req.json();
+    const jsonResult = await parseJsonBody(req);
+    if (!jsonResult.success) {
+      return jsonResult.response;
+    }
+    const body = jsonResult.data;
     const parseResult = applyChangeRequestSchema.safeParse(body);
 
     if (!parseResult.success) {

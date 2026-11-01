@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { checkRateLimit, createRateLimitResponse } from "@/lib/security/rate-limit";
+import { parseJsonBody } from "@/lib/security/request";
 import { intakeRequestSchema } from "@/lib/ai/schemas";
 import { proposeIdeas } from "@/lib/ai/orchestrator";
 import { extractByokFromHeaders } from "@/lib/ai/router";
@@ -32,7 +33,11 @@ export async function POST(req: NextRequest) {
       return createRateLimitResponse(rateLimit.retryAfterSeconds || 60);
     }
 
-    const body = await req.json();
+    const jsonResult = await parseJsonBody(req);
+    if (!jsonResult.success) {
+      return jsonResult.response;
+    }
+    const body = jsonResult.data;
     const parseResult = intakeRequestSchema.safeParse(body);
 
     if (!parseResult.success) {

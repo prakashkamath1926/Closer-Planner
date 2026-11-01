@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { checkRateLimit, createRateLimitResponse } from "@/lib/security/rate-limit";
+import { parseJsonBody } from "@/lib/security/request";
 import { generateInvitationCopy } from "@/lib/ai/orchestrator";
 import { extractByokFromHeaders } from "@/lib/ai/router";
 
@@ -33,7 +34,11 @@ export async function POST(req: NextRequest) {
       return createRateLimitResponse(rateLimit.retryAfterSeconds ?? 60);
     }
 
-    const body = await req.json();
+    const jsonResult = await parseJsonBody(req);
+    if (!jsonResult.success) {
+      return jsonResult.response;
+    }
+    const body = jsonResult.data;
     const parsed = invitationCopyRequestSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(

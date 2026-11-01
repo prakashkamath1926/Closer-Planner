@@ -5,6 +5,7 @@ import { generateBlendQuestions } from "@/lib/ai/orchestrator";
 import { extractByokFromHeaders } from "@/lib/ai/router";
 import { checkRateLimit, createRateLimitResponse } from "@/lib/security/rate-limit";
 import { hashShareToken, isValidTokenFormat } from "@/lib/engine/shield";
+import { parseJsonBody } from "@/lib/security/request";
 
 /**
  * GET /api/blend/questions?occasionId=...&token=...
@@ -150,7 +151,18 @@ export async function POST(req: NextRequest) {
       return createRateLimitResponse(rateLimit.retryAfterSeconds || 60);
     }
 
-    const body = await req.json();
+    const jsonResult = await parseJsonBody(req);
+    if (!jsonResult.success) {
+      return jsonResult.response;
+    }
+    const body = jsonResult.data as {
+      occasionType?: string;
+      recipientName?: string;
+      intentSummary?: string;
+      concept?: string;
+      knownInterests?: string[];
+      guestCount?: number | string;
+    };
     const { occasionType, recipientName, intentSummary, concept, knownInterests, guestCount } = body;
 
     const byok = extractByokFromHeaders(req.headers);

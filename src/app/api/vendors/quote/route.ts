@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { Json } from "@/lib/supabase/database.types";
 import { checkRateLimit, createRateLimitResponse } from "@/lib/security/rate-limit";
+import { parseJsonBody } from "@/lib/security/request";
 import { parseQuote } from "@/lib/ai/orchestrator";
 import { extractByokFromHeaders } from "@/lib/ai/router";
 
@@ -42,7 +43,11 @@ export async function POST(req: NextRequest) {
       return createRateLimitResponse(rateLimit.retryAfterSeconds ?? 60);
     }
 
-    const body = await req.json();
+    const jsonResult = await parseJsonBody(req);
+    if (!jsonResult.success) {
+      return jsonResult.response;
+    }
+    const body = jsonResult.data;
     const parsed = parseQuoteRequestSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(

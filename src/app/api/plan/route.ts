@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { parseJsonBody } from "@/lib/security/request";
 import { celebrationIdeaSchema, entryPathEnum } from "@/lib/ai/schemas";
 
 const savePlanRequestSchema = z.object({
@@ -47,7 +48,11 @@ export async function POST(req: NextRequest) {
       user = anonData.user;
     }
 
-    const body = await req.json();
+    const jsonResult = await parseJsonBody(req);
+    if (!jsonResult.success) {
+      return jsonResult.response;
+    }
+    const body = jsonResult.data;
     const parseResult = savePlanRequestSchema.safeParse(body);
 
     if (!parseResult.success) {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { checkRateLimit, createRateLimitResponse } from "@/lib/security/rate-limit";
+import { parseJsonBody } from "@/lib/security/request";
 import { getVendorQuestions } from "@/lib/ai/orchestrator";
 
 const questionsRequestSchema = z.object({
@@ -30,7 +31,11 @@ export async function POST(req: NextRequest) {
       return createRateLimitResponse(rateLimit.retryAfterSeconds ?? 60);
     }
 
-    const body = await req.json();
+    const jsonResult = await parseJsonBody(req);
+    if (!jsonResult.success) {
+      return jsonResult.response;
+    }
+    const body = jsonResult.data;
     const parsed = questionsRequestSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
