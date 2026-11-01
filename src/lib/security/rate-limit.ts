@@ -18,6 +18,48 @@ export interface RateLimitResult {
   retryAfterSeconds?: number;
 }
 
+interface MemoryBucket {
+  count: number;
+  resetAt: number;
+}
+
+const memoryRateLimitMap = new Map<string, MemoryBucket>();
+
+function checkInMemoryFallback(
+  bucket: string,
+  windowSeconds: number,
+  maxHits: number,
+): RateLimitResult {
+  const now = Date.now();
+  const entry = memoryRateLimitMap.get(bucket);
+
+  if (!entry || now >= entry.resetAt) {
+    memoryRateLimitMap.set(bucket, { count: 1, resetAt: now + windowSeconds * 1000 });
+    return {
+      allowed: true,
+      limit: maxHits,
+      windowSeconds,
+    };
+  }
+
+  if (entry.count < maxHits) {
+    entry.count += 1;
+    return {
+      allowed: true,
+      limit: maxHits,
+      windowSeconds,
+    };
+  }
+
+  const retryAfterSeconds = Math.max(1, Math.ceil((entry.resetAt - now) / 1000));
+  return {
+    allowed: false,
+    limit: maxHits,
+    windowSeconds,
+    retryAfterSeconds,
+  };
+}
+
 /**
  * Checks and increments the rate limit counter for a given bucket.
  *
@@ -39,9 +81,18 @@ export async function checkRateLimit(
   });
 
   if (error) {
-    // If rate limiting fails due to DB error, log error and fail closed or open safely
-    console.error("Rate limit check error:", error.message);
-    // Safe default: allow request if RPC fails transiently, but log warning
+    const isAiBucket = bucket.startsWith("ai:") || bucket.startsWith("ai-ip:");
+    // Log metadata only (never user payload or credentials)
+    console.error(
+      `[RateLimit DB Error] bucket_type=${isAiBucket ? "ai" : "non-ai"} limit=${maxHits} error="${error.message || "Unknown"}"`,
+    );
+
+    if (isAiBucket) {
+      // Conservative in-memory fallback for AI routes: never allow unlimited traffic
+      return checkInMemoryFallback(bucket, windowSeconds, maxHits);
+    }
+
+    // Safe default for non-AI routes: fail open
     return {
       allowed: true,
       limit: maxHits,
