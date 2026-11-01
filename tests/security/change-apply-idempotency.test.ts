@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
@@ -83,7 +84,7 @@ describe("POST /api/changes/apply Idempotency Key Replay Protection", () => {
         }
         if (table === "plan_versions") {
           return {
-            select: vi.fn((cols: string) => ({
+            select: vi.fn(() => ({
               eq: vi.fn((col: string, val: string) => {
                 const filtered = versionsStore.filter((v) => v.occasion_id === val);
                 return {
