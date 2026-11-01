@@ -132,7 +132,7 @@ flowchart TD
 
 ## 🔐 Security
 
-- **Row Level Security**: Enabled across all tables in `schema.sql`. Users can only access their own records.
+- **Row Level Security**: Enabled on all tables in `schema.sql`, with owner-scoped policies. Shared links (Shield, letters) go through server routes that check hashed tokens.
 - **Headers**: Content Security Policy, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, and HSTS (see `next.config.ts`).
 - **Rate limiting**: PostgreSQL-backed `rate_limit_hit()` with an in-memory fallback (10 requests / 60 seconds on AI endpoints).
 - **BYOK**: Keys live in browser `sessionStorage` for the tab session, are sent per request in custom headers, and are never stored or logged server-side.
