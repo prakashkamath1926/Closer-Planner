@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useSyncExternalStore, useEffect, useRef } from "react";
-import { Clock, Download, ListOrdered, CalendarDays, ShieldAlert, CheckCircle2, AlertCircle, AlertTriangle, Calendar, Star } from "lucide-react";
+import { Clock, Download, ListOrdered, CalendarDays, ShieldAlert, CheckCircle2, AlertCircle, AlertTriangle, Calendar, Star, Bell, BellRing, X } from "lucide-react";
 import { calculateEventCountdown } from "@/lib/engine/countdown";
 import { generateOccasionIcs } from "@/lib/engine/ics";
 import { generateTonightRunSheet, RunSheetSlot } from "@/lib/engine/run-sheet";
@@ -53,6 +53,30 @@ function useHasNotificationSupport() {
   );
 }
 
+function useNotificationPermission(): NotificationPermission | "default" {
+  return useSyncExternalStore(
+    (callback) => {
+      if (typeof window === "undefined" || !navigator.permissions?.query) return () => {};
+      let active = true;
+      let statusObj: PermissionStatus | null = null;
+      navigator.permissions
+        .query({ name: "notifications" as PermissionName })
+        .then((status) => {
+          if (!active) return;
+          statusObj = status;
+          statusObj.onchange = callback;
+        })
+        .catch(() => {});
+      return () => {
+        active = false;
+        if (statusObj) statusObj.onchange = null;
+      };
+    },
+    () => (typeof window !== "undefined" && "Notification" in window ? Notification.permission : "default"),
+    () => "default",
+  );
+}
+
 function toLocalDateKey(dateInput: string | Date): string {
   if (!dateInput) return "";
   if (typeof dateInput === "string") {
@@ -71,6 +95,35 @@ function toLocalDateKey(dateInput: string | Date): string {
   return `${y}-${m}-${d}`;
 }
 
+interface ToastAlert {
+  id: string;
+  title: string;
+  body: string;
+}
+
+function playAlertChime() {
+  try {
+    if (typeof window === "undefined") return;
+    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (AudioCtx) {
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.35);
+    }
+  } catch {
+    // Ignore audio restrictions
+  }
+}
+
 interface CalendarViewProps {
   occasion: OccasionRecord;
   items: PlanItemRecord[];
@@ -80,8 +133,100 @@ interface CalendarViewProps {
 export function CalendarView({ occasion, items, onOpenChangeModal }: CalendarViewProps) {
   const [activeTab, setActiveTab] = useState<"agenda" | "month" | "runsheet">("agenda");
   const [optInSecretTitle, setOptInSecretTitle] = useState(false);
-  const [notificationStatus, setNotificationStatus] = useState<string>("default");
+  const [activeToast, setActiveToast] = useState<ToastAlert | null>(null);
+  const [deniedModalOpen, setDeniedModalOpen] = useState(false);
+  const notificationStatus = useNotificationPermission();
   const hasNotificationSupport = useHasNotificationSupport();
+
+  // Auto-dismiss active toast after 6s
+  useEffect(() => {
+    if (!activeToast) return;
+    const timer = setTimeout(() => {
+      setActiveToast(null);
+    }, 6000);
+    return () => clearTimeout(timer);
+  }, [activeToast]);
+
+  const triggerAlert = (title: string, body: string) => {
+    // 1. In-App visual banner
+    setActiveToast({
+      id: `${Date.now()}-${Math.random()}`,
+      title,
+      body,
+    });
+
+    // 2. Audible chime
+    playAlertChime();
+
+    // 3. Browser OS Web Notification
+    if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+      try {
+        const notif = new Notification(title, {
+          body,
+          tag: "closer-alert",
+        });
+        notif.onclick = () => {
+          window.focus();
+          notif.close();
+        };
+      } catch {
+        if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.ready.then((reg) => {
+            reg.showNotification(title, { body, tag: "closer-alert" }).catch(() => {});
+          }).catch(() => {});
+        }
+      }
+    }
+  };
+
+  const handleNotificationAction = async () => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      triggerAlert(
+        `Alerts Active for ${occasion.title}`,
+        "Celebration reminders and task updates are active in this browser session.",
+      );
+      return;
+    }
+
+    if (Notification.permission === "granted") {
+      triggerAlert(
+        `🔔 Celebration Alerts Active`,
+        `Notifications verified for ${occasion.title}. You will be alerted as tasks arrive!`,
+      );
+      return;
+    }
+
+    if (Notification.permission === "denied") {
+      setDeniedModalOpen(true);
+      triggerAlert(
+        `In-App Alerts Active`,
+        "Desktop alerts are blocked in site settings. In-app celebration alerts will still notify you here!",
+      );
+      return;
+    }
+
+    try {
+      const perm = await Notification.requestPermission();
+
+      if (perm === "granted") {
+        triggerAlert(
+          `🔔 Alerts Enabled for ${occasion.title}`,
+          "You will receive reminders for upcoming celebration tasks and milestones.",
+        );
+      } else if (perm === "denied") {
+        setDeniedModalOpen(true);
+        triggerAlert(
+          `In-App Alerts Active`,
+          "Notifications blocked in browser. In-app alerts will continue to notify you.",
+        );
+      }
+    } catch {
+      triggerAlert(
+        `Alerts Active for ${occasion.title}`,
+        "Celebration reminders are enabled for this plan.",
+      );
+    }
+  };
 
   const nowMs = useSyncExternalStore(timeStore.subscribe, timeStore.getSnapshot, timeStore.getServerSnapshot);
 
@@ -89,28 +234,6 @@ export function CalendarView({ occasion, items, onOpenChangeModal }: CalendarVie
   const countdown = useMemo(() => {
     return calculateEventCountdown(occasion.event_at, nowMs > 0 ? new Date(nowMs) : new Date(occasion.event_at || 0));
   }, [occasion.event_at, nowMs]);
-
-  // Request browser notification permission if requested
-  const requestNotificationPermission = async () => {
-    if (typeof window !== "undefined" && "Notification" in window) {
-      try {
-        const perm = await Notification.requestPermission();
-        setNotificationStatus(perm);
-        if (perm === "granted") {
-          try {
-            new Notification(`Alerts Enabled for ${occasion.title}`, {
-              body: "You'll be notified of upcoming celebration tasks and milestones.",
-              icon: "/favicon.ico",
-            });
-          } catch {
-            // Some environments restrict Notification instantiation
-          }
-        }
-      } catch {
-        setNotificationStatus("denied");
-      }
-    }
-  };
 
   // Download .ics handler
   const handleDownloadIcs = () => {
@@ -184,50 +307,34 @@ export function CalendarView({ occasion, items, onOpenChangeModal }: CalendarVie
   const notifiedKeysRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    if (
-      notificationStatus !== "granted" ||
-      typeof window === "undefined" ||
-      !("Notification" in window) ||
-      Notification.permission !== "granted" ||
-      !nowMs
-    ) {
-      return;
-    }
+    if (!nowMs) return;
 
     // 1. Check celebration event_at arrival
     if (occasion.event_at) {
       const eventTime = new Date(occasion.event_at).getTime();
       const eventKey = `event-${occasion.id}`;
-      if (!notifiedKeysRef.current.has(eventKey) && nowMs >= eventTime && nowMs - eventTime < 1000 * 60 * 30) {
+      if (!notifiedKeysRef.current.has(eventKey) && nowMs >= eventTime && nowMs - eventTime < 1000 * 60 * 60 * 24) {
         notifiedKeysRef.current.add(eventKey);
-        try {
-          new Notification(`Celebration Time: ${occasion.title}!`, {
-            body: "Your celebration has officially arrived!",
-            icon: "/favicon.ico",
-          });
-        } catch {
-          // Ignore
-        }
+        triggerAlert(
+          `🎉 Celebration Time: ${occasion.title}!`,
+          "Your celebration has officially arrived!",
+        );
       }
     }
 
-    // 2. Check dated tasks that are due right now (within past 5 minutes)
+    // 2. Check dated tasks that are due right now
     datedTasks.forEach((task) => {
       if (task.isDone || !task.dueMs) return;
       const taskKey = `task-${task.id}`;
-      if (!notifiedKeysRef.current.has(taskKey) && nowMs >= task.dueMs && nowMs - task.dueMs < 1000 * 60 * 5) {
+      if (!notifiedKeysRef.current.has(taskKey) && nowMs >= task.dueMs && nowMs - task.dueMs < 1000 * 60 * 15) {
         notifiedKeysRef.current.add(taskKey);
-        try {
-          new Notification(`Task Due: ${task.title}`, {
-            body: `Celebration task for ${occasion.title} is due now.`,
-            icon: "/favicon.ico",
-          });
-        } catch {
-          // Ignore
-        }
+        triggerAlert(
+          `🔔 Task Due: ${task.title}`,
+          `Celebration task for ${occasion.title} is due now.`,
+        );
       }
     });
-  }, [nowMs, notificationStatus, occasion.id, occasion.title, occasion.event_at, datedTasks]);
+  }, [nowMs, occasion.id, occasion.title, occasion.event_at, datedTasks]);
 
   // Month grid calculation
   const [prevEventAt, setPrevEventAt] = useState(occasion.event_at);
@@ -288,7 +395,54 @@ export function CalendarView({ occasion, items, onOpenChangeModal }: CalendarVie
   }, [viewMonthYear, occasion.event_at, items]);
 
   return (
-    <section aria-labelledby="calendar-heading" className="space-y-6">
+    <section aria-labelledby="calendar-heading" className="space-y-6 relative">
+      {/* In-App Floating Toast Notification (guaranteed visual & audible alert) */}
+      {activeToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed top-20 right-4 z-50 flex max-w-sm items-start gap-3 rounded-2xl border-2 border-rose/30 bg-white p-4 shadow-xl backdrop-blur-md transition-all animate-in slide-in-from-top-4 duration-300"
+        >
+          <div className="grid size-8 place-items-center rounded-full bg-rose text-white shrink-0 shadow-xs">
+            <BellRing className="size-4 animate-bounce" aria-hidden="true" />
+          </div>
+          <div className="flex-1 pr-1">
+            <h5 className="font-serif text-xs font-bold text-plum">{activeToast.title}</h5>
+            <p className="mt-0.5 text-[11px] text-mauve leading-snug">{activeToast.body}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveToast(null)}
+            className="text-mauve hover:text-plum p-1 -mr-1 -mt-1 rounded-full hover:bg-blush transition-colors"
+            aria-label="Dismiss alert"
+          >
+            <X className="size-3.5" aria-hidden="true" />
+          </button>
+        </div>
+      )}
+
+      {/* Browser Permission Guidance Banner if blocked in site settings */}
+      {deniedModalOpen && (
+        <div className="rounded-2xl border border-rose/30 bg-blush/40 p-4 text-xs text-plum flex items-start justify-between gap-3">
+          <div className="flex items-start gap-2.5">
+            <AlertCircle className="size-4 text-rose shrink-0 mt-0.5" aria-hidden="true" />
+            <div>
+              <p className="font-semibold text-rose-deep">Browser notifications are blocked in your site settings</p>
+              <p className="mt-0.5 text-mauve text-[11px]">
+                To receive desktop notifications even when this tab is in the background, click the lock or tune icon beside the URL in your browser&apos;s address bar and set <strong>Notifications</strong> to <strong>Allow</strong>. In-app alerts and sounds are active right now!
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setDeniedModalOpen(false)}
+            className="rounded-full p-1 text-mauve hover:bg-white transition-colors"
+            aria-label="Dismiss banner"
+          >
+            <X className="size-3.5" aria-hidden="true" />
+          </button>
+        </div>
+      )}
       {/* 1. Countdown Hero Card - Largest visual weight on Timeline tab */}
       {occasion.event_at ? (
         <div className="rounded-3xl border border-blush bg-white p-6 shadow-sm sm:p-8">
@@ -445,11 +599,38 @@ export function CalendarView({ occasion, items, onOpenChangeModal }: CalendarVie
           {hasNotificationSupport && (
             <button
               type="button"
-              onClick={requestNotificationPermission}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-white px-3 py-2 text-xs font-medium text-plum/80 hover:bg-sand/60 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-rose transition-colors"
+              onClick={handleNotificationAction}
+              className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold shadow-2xs transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-rose ${
+                notificationStatus === "granted"
+                  ? "border-sage/60 bg-sage/20 text-sage-deep hover:bg-sage/30"
+                  : notificationStatus === "denied"
+                  ? "border-rose/40 bg-blush/30 text-rose-deep hover:bg-blush/50"
+                  : "border-border bg-white text-plum hover:bg-sand/60"
+              }`}
+              title={
+                notificationStatus === "granted"
+                  ? "Alerts active! Click to send a test alert"
+                  : notificationStatus === "denied"
+                  ? "Notifications blocked in browser. Click for instructions"
+                  : "Click to enable celebration reminders"
+              }
             >
-              <Clock className="h-3.5 w-3.5 text-mauve" aria-hidden="true" />
-              <span>{notificationStatus === "granted" ? "Alerts Enabled" : "Enable Browser Alerts"}</span>
+              {notificationStatus === "granted" ? (
+                <>
+                  <BellRing className="h-3.5 w-3.5 text-sage-deep" aria-hidden="true" />
+                  <span>Alerts Enabled &bull; Test 🔔</span>
+                </>
+              ) : notificationStatus === "denied" ? (
+                <>
+                  <AlertCircle className="h-3.5 w-3.5 text-rose" aria-hidden="true" />
+                  <span>Alerts Blocked in Browser</span>
+                </>
+              ) : (
+                <>
+                  <Bell className="h-3.5 w-3.5 text-mauve" aria-hidden="true" />
+                  <span>Enable Browser Alerts</span>
+                </>
+              )}
             </button>
           )}
         </div>
