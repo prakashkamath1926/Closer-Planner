@@ -52,6 +52,15 @@ export function AiSettingsDialog() {
     return () => window.removeEventListener("closer:open-ai-settings", handleOpen);
   }, []);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [isOpen]);
+
   // Close on Escape
   useEffect(() => {
     if (!isOpen) return;
@@ -157,10 +166,9 @@ export function AiSettingsDialog() {
       onClick={(e) => {
         if (e.target === e.currentTarget) setIsOpen(false);
       }}
-      className="fixed inset-0 z-50 overflow-y-auto bg-plum/50 backdrop-blur-xs p-4 sm:p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-plum/50 backdrop-blur-xs"
     >
-      <div className="flex min-h-full items-start justify-center">
-        <div className="relative my-auto w-full max-w-lg rounded-3xl border border-blush bg-white p-6 sm:p-8 text-left shadow-2xl">
+      <div className="relative w-full max-w-lg max-h-[min(92vh,680px)] overflow-y-auto rounded-3xl border border-blush bg-white p-5 sm:p-8 text-left shadow-2xl">
         {/* Close Button */}
         <button
           type="button"
@@ -393,7 +401,6 @@ export function AiSettingsDialog() {
               Save for this session
             </button>
           </div>
-        </div>
         </div>
       </div>
     </div>,

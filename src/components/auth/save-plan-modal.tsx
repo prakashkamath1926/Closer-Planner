@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useSyncExternalStore } from "react";
+import { useState, useTransition, useSyncExternalStore, useEffect } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { X, Lock, CheckCircle2 } from "lucide-react";
@@ -25,6 +25,15 @@ export function SavePlanModal({ isOpen, onClose, occasionId, onUpgraded }: SaveP
   const [isPending, startTransition] = useTransition();
   const [isGooglePending, setIsGooglePending] = useState(false);
   const isClient = useSyncExternalStore(emptySubscribe, () => true, () => false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [isOpen]);
 
   if (!isOpen || !isClient) return null;
 
@@ -122,10 +131,9 @@ export function SavePlanModal({ isOpen, onClose, occasionId, onUpgraded }: SaveP
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-50 overflow-y-auto bg-plum/50 backdrop-blur-xs p-4 sm:p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-plum/50 backdrop-blur-xs"
     >
-      <div className="flex min-h-full items-start justify-center">
-        <div className="relative my-auto w-full max-w-md rounded-3xl border border-blush bg-white p-6 sm:p-8 text-left shadow-2xl">
+      <div className="relative w-full max-w-md max-h-[min(94vh,560px)] overflow-y-auto rounded-3xl border border-blush bg-white p-5 sm:p-6 text-left shadow-2xl">
         <button
           type="button"
           onClick={onClose}
@@ -136,14 +144,14 @@ export function SavePlanModal({ isOpen, onClose, occasionId, onUpgraded }: SaveP
         </button>
 
         <div className="flex items-center gap-2">
-          <div className="grid size-9 place-items-center rounded-full bg-blush text-rose-deep">
-            <Lock className="size-4" aria-hidden="true" />
+          <div className="grid size-8 place-items-center rounded-full bg-blush text-rose-deep shrink-0">
+            <Lock className="size-3.5" aria-hidden="true" />
           </div>
           <div>
-            <h2 id="save-plan-title" className="font-serif text-xl font-bold text-plum">
+            <h2 id="save-plan-title" className="font-serif text-lg font-bold text-plum sm:text-xl">
               Save your celebration plan
             </h2>
-            <p className="text-xs text-mauve">
+            <p className="text-[11px] text-mauve">
               Keep your tasks, vendors, and schedule permanently safe
             </p>
           </div>
@@ -152,16 +160,27 @@ export function SavePlanModal({ isOpen, onClose, occasionId, onUpgraded }: SaveP
         {errorMessage && (
           <div
             aria-live="polite"
-            className="mt-4 rounded-xl border border-rose/30 bg-blush/30 p-3 text-center text-xs font-medium text-rose-deep"
+            className="mt-3 rounded-xl border border-rose/30 bg-blush/30 p-2.5 text-center text-xs font-medium text-rose-deep"
           >
-            {errorMessage}
+            <span>{errorMessage}</span>
+            {errorMessage.toLowerCase().includes("already exists") && (
+              <div className="mt-1">
+                <Link
+                  href={`/login?next=${encodeURIComponent(occasionId ? `/plan/${occasionId}` : "/")}`}
+                  onClick={onClose}
+                  className="font-bold underline hover:text-plum"
+                >
+                  Sign in to your account &rarr;
+                </Link>
+              </div>
+            )}
           </div>
         )}
 
         {isSuccess && (
           <div
             aria-live="polite"
-            className="mt-4 flex items-center gap-2 rounded-xl border border-sage/40 bg-sage/20 p-3 text-center text-xs font-medium text-sage-deep"
+            className="mt-3 flex items-center gap-2 rounded-xl border border-sage/40 bg-sage/20 p-2.5 text-center text-xs font-medium text-sage-deep"
           >
             <CheckCircle2 className="size-4 text-sage-deep shrink-0" aria-hidden="true" />
             <span>Plan saved! Your account is secured under the same link.</span>
@@ -174,7 +193,7 @@ export function SavePlanModal({ isOpen, onClose, occasionId, onUpgraded }: SaveP
               type="button"
               onClick={handleGoogleLink}
               disabled={isGooglePending || isPending}
-              className="mt-5 flex w-full items-center justify-center gap-3 rounded-2xl border border-border bg-white px-4 py-2.5 text-xs font-semibold text-plum shadow-2xs hover:bg-paper focus-visible:outline-2 focus-visible:outline-rose-deep disabled:opacity-50 transition-colors"
+              className="mt-4 flex w-full items-center justify-center gap-2.5 rounded-2xl border border-border bg-white px-4 py-2 text-xs font-semibold text-plum shadow-2xs hover:bg-paper focus-visible:outline-2 focus-visible:outline-rose-deep disabled:opacity-50 transition-colors"
             >
               <svg className="size-4" viewBox="0 0 24 24" aria-hidden="true">
                 <path
@@ -197,16 +216,16 @@ export function SavePlanModal({ isOpen, onClose, occasionId, onUpgraded }: SaveP
               {isGooglePending ? "Connecting to Google..." : "Save with Google"}
             </button>
 
-            <div className="relative my-4 flex items-center justify-center">
+            <div className="relative my-3 flex items-center justify-center">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-border" />
               </div>
-              <span className="relative bg-white px-2 text-[11px] uppercase tracking-wider text-mauve">
+              <span className="relative bg-white px-2 text-[10px] uppercase tracking-wider text-mauve">
                 or set email and password
               </span>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-3">
+            <form onSubmit={handleSubmit} className="space-y-2.5">
               <div>
                 <label
                   htmlFor="upgrade-name"
@@ -220,7 +239,7 @@ export function SavePlanModal({ isOpen, onClose, occasionId, onUpgraded }: SaveP
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Kavya"
-                  className="mt-1 w-full rounded-2xl border border-border bg-paper px-3 py-2 text-xs text-plum placeholder:text-mauve/70 focus:border-rose focus-visible:outline-2 focus-visible:outline-rose-deep"
+                  className="mt-1 w-full rounded-xl border border-border bg-paper px-3 py-1.5 text-xs text-plum placeholder:text-mauve/70 focus:border-rose focus-visible:outline-2 focus-visible:outline-rose-deep"
                 />
               </div>
 
@@ -238,7 +257,7 @@ export function SavePlanModal({ isOpen, onClose, occasionId, onUpgraded }: SaveP
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
-                  className="mt-1 w-full rounded-2xl border border-border bg-paper px-3 py-2 text-xs text-plum placeholder:text-mauve/70 focus:border-rose focus-visible:outline-2 focus-visible:outline-rose-deep"
+                  className="mt-1 w-full rounded-xl border border-border bg-paper px-3 py-1.5 text-xs text-plum placeholder:text-mauve/70 focus:border-rose focus-visible:outline-2 focus-visible:outline-rose-deep"
                 />
               </div>
 
@@ -257,21 +276,21 @@ export function SavePlanModal({ isOpen, onClose, occasionId, onUpgraded }: SaveP
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••••"
-                  className="mt-1 w-full rounded-2xl border border-border bg-paper px-3 py-2 text-xs text-plum placeholder:text-mauve/70 focus:border-rose focus-visible:outline-2 focus-visible:outline-rose-deep"
+                  className="mt-1 w-full rounded-xl border border-border bg-paper px-3 py-1.5 text-xs text-plum placeholder:text-mauve/70 focus:border-rose focus-visible:outline-2 focus-visible:outline-rose-deep"
                 />
               </div>
 
-              <div className="pt-2">
+              <div className="pt-1.5">
                 <button
                   type="submit"
                   disabled={isPending || isGooglePending}
-                  className="w-full rounded-full bg-rose py-2.5 text-center text-xs font-semibold text-white shadow-xs hover:bg-rose-deep focus-visible:outline-2 focus-visible:outline-rose-deep disabled:opacity-50 transition-colors"
+                  className="w-full rounded-full bg-rose py-2 text-center text-xs font-semibold text-white shadow-xs hover:bg-rose-deep focus-visible:outline-2 focus-visible:outline-rose-deep disabled:opacity-50 transition-colors"
                 >
                   {isPending ? "Securing plan..." : "Save plan"}
                 </button>
               </div>
 
-              <p className="mt-4 text-center text-xs text-mauve">
+              <p className="mt-2.5 text-center text-xs text-mauve">
                 Already have an account?{" "}
                 <Link
                   href={`/login?next=${encodeURIComponent(occasionId ? `/plan/${occasionId}` : "/")}`}
@@ -284,7 +303,6 @@ export function SavePlanModal({ isOpen, onClose, occasionId, onUpgraded }: SaveP
             </form>
           </>
         )}
-      </div>
       </div>
     </div>,
     document.body,

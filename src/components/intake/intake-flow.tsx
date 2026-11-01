@@ -324,6 +324,20 @@ export function IntakeFlow() {
 
       const data = await res.json();
       setSavedOccasionId(data.occasionId);
+      try {
+        localStorage.setItem(
+          "closer_last_occasion",
+          JSON.stringify({
+            id: data.occasionId,
+            title: idea.title,
+            occasion_type: occasionType,
+            recipient_name: recipientName || null,
+            event_at: eventAt || null,
+          }),
+        );
+      } catch {
+        // Ignore localStorage quota
+      }
     } catch (err: unknown) {
       console.error(err);
       setErrorMessage(

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useSyncExternalStore } from "react";
+import React, { useState, useSyncExternalStore, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X, Calendar, Sparkles } from "lucide-react";
 import { getByokHeaders } from "@/lib/ai/byok-client";
@@ -62,6 +62,15 @@ export function ChangeModal({
   const [isDirectSaving, setIsDirectSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isClient = useSyncExternalStore(emptySubscribe, () => true, () => false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [isOpen]);
 
   if (!isOpen || !isClient) return null;
 
@@ -155,10 +164,9 @@ export function ChangeModal({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-50 overflow-y-auto bg-plum/50 backdrop-blur-xs p-4 sm:p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-plum/50 backdrop-blur-xs"
     >
-      <div className="flex min-h-full items-start justify-center">
-        <div className="relative my-auto w-full max-w-lg rounded-3xl border border-blush bg-paper p-6 sm:p-8 text-left shadow-2xl">
+      <div className="relative w-full max-w-lg max-h-[min(92vh,680px)] overflow-y-auto rounded-3xl border border-blush bg-paper p-5 sm:p-8 text-left shadow-2xl">
           <div className="flex items-center justify-between border-b border-blush pb-4">
             <div className="flex items-center gap-2">
               <div className="grid size-9 place-items-center rounded-full bg-blush text-plum">
@@ -285,8 +293,7 @@ export function ChangeModal({
             </div>
           </form>
         </div>
-      </div>
-    </div>,
-    document.body,
-  );
+      </div>,
+      document.body,
+    );
   }
