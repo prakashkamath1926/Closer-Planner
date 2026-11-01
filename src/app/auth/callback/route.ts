@@ -31,25 +31,41 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      if (claimOccasionId && data?.user && anonId) {
-        const isUuid =
-          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-            claimOccasionId,
-          );
-        if (isUuid) {
-          try {
-            const admin = createAdminClient();
-            await admin
-              .from("occasions")
-              .update({ owner_id: data.user.id })
-              .eq("id", claimOccasionId)
-              .eq("owner_id", anonId);
-          } catch (claimErr) {
-            console.error("Failed to claim occasion for user:", claimErr);
+      let claimFailed = false;
+      if (claimOccasionId) {
+        if (!data?.user || !anonId) {
+          claimFailed = true;
+        } else {
+          const isUuid =
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+              claimOccasionId,
+            );
+          if (isUuid) {
+            try {
+              const admin = createAdminClient();
+              const updateRes = await admin
+                .from("occasions")
+                .update({ owner_id: data.user.id })
+                .eq("id", claimOccasionId)
+                .eq("owner_id", anonId)
+                .select("id");
+              if (!updateRes?.data || updateRes.data.length === 0 || updateRes.error) {
+                claimFailed = true;
+              }
+            } catch (claimErr) {
+              console.error("Failed to claim occasion for user:", claimErr);
+              claimFailed = true;
+            }
+          } else {
+            claimFailed = true;
           }
         }
       }
-      return NextResponse.redirect(new URL(destination, request.url));
+      const redirectUrl = new URL(destination, request.url);
+      if (claimFailed) {
+        redirectUrl.searchParams.set("notice", "claim_failed");
+      }
+      return NextResponse.redirect(redirectUrl);
     }
     console.error("Auth callback code exchange error:", error);
   }

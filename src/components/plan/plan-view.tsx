@@ -494,6 +494,17 @@ export function PlanView({
 
       {/* Main Container */}
       <main className="mx-auto max-w-6xl px-4 pt-6 sm:px-6">
+        {/* Notice Banner */}
+        {searchParams?.get("notice") === "claim_failed" && (
+          <div
+            role="status"
+            className="mb-6 flex items-center gap-3 rounded-2xl border border-blush bg-sand/60 p-4 text-xs font-medium text-plum shadow-xs"
+          >
+            <AlertTriangle className="h-4 w-4 shrink-0 text-mauve" aria-hidden="true" />
+            <span>We couldn&apos;t attach your earlier plan to this account</span>
+          </div>
+        )}
+
         {/* Undo Notification Banner */}
         {lastAppliedSummary && (
           <div className="mb-6 flex flex-col items-start justify-between gap-3 rounded-2xl border border-sage/40 bg-sage/10 p-4 sm:flex-row sm:items-center">

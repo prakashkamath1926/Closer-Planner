@@ -28,10 +28,14 @@ describe("GET /auth/callback - OAuth Claim Takeover Protection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    adminEqMock = vi.fn().mockReturnThis();
-    adminUpdateMock = vi.fn().mockReturnValue({
-      eq: adminEqMock,
-    });
+    const mockQuery: any = {
+      eq: vi.fn(),
+      select: vi.fn().mockResolvedValue({ data: [{ id: myOccasionId }], error: null }),
+    };
+    mockQuery.eq.mockReturnValue(mockQuery);
+
+    adminEqMock = mockQuery.eq;
+    adminUpdateMock = vi.fn().mockReturnValue(mockQuery);
 
     (createAdminClient as any).mockReturnValue({
       from: vi.fn((table: string) => {
@@ -116,5 +120,44 @@ describe("GET /auth/callback - OAuth Claim Takeover Protection", () => {
     expect(adminUpdateMock).toHaveBeenCalledWith({ owner_id: googleAuthenticatedUserId });
     expect(adminEqMock).toHaveBeenCalledWith("id", myOccasionId);
     expect(adminEqMock).toHaveBeenCalledWith("owner_id", anonUserId);
+  });
+
+  it("claim with 0 rows updated redirects with notice=claim_failed and keeps user signed in", async () => {
+    const mockSupabase = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: anonUserId, is_anonymous: true } },
+          error: null,
+        }),
+        exchangeCodeForSession: vi.fn().mockResolvedValue({
+          data: { user: { id: googleAuthenticatedUserId } },
+          error: null,
+        }),
+      },
+    };
+    (createClient as any).mockResolvedValue(mockSupabase);
+
+    // Mock 0 rows updated
+    (createAdminClient as any).mockReturnValue({
+      from: vi.fn(() => ({
+        update: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              select: vi.fn().mockResolvedValue({ data: [], error: null }),
+            }),
+          }),
+        }),
+      })),
+    });
+
+    const req = new NextRequest(
+      `http://localhost:3000/auth/callback?code=valid-code&claim=${myOccasionId}&next=/plan/${myOccasionId}`
+    );
+    const res = await GET(req);
+
+    expect(res.status).toBe(307);
+    const location = res.headers.get("location");
+    expect(location).toContain("/plan/");
+    expect(location).toContain("notice=claim_failed");
   });
 });
