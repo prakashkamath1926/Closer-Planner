@@ -217,13 +217,35 @@ describe("Database Write-Error Handling & Snapshot Integrity", () => {
       occasionUpdateError?: any;
       itemDeleteError?: any;
       itemInsertError?: any;
+      vendorDeleteError?: any;
+      vendorInsertError?: any;
     } = {}) {
       const validSnapshot = {
         occasion: { id: occasionId, title: "Birthday Party" },
-        plan_items: [{ id: "item-10", title: "Music", occasion_id: occasionId }],
-        vendors: [{ id: "v-1", name: "DJ", occasion_id: occasionId }],
+        plan_items: [
+          {
+            id: "item-10",
+            title: "Music",
+            occasion_id: occasionId,
+            plan_b: "Spotify playlist",
+            is_non_negotiable: true,
+          },
+        ],
+        vendors: [
+          {
+            id: "v-1",
+            name: "DJ Live",
+            occasion_id: occasionId,
+            category: "music",
+            quote_amount: "500.00",
+            status: "confirmed",
+          },
+        ],
         captured_at: new Date().toISOString(),
       };
+
+      let insertedItems: any[] = [];
+      let insertedVendors: any[] = [];
 
       const mockSupabase = {
         auth: {
@@ -287,8 +309,11 @@ describe("Database Write-Error Handling & Snapshot Integrity", () => {
                   error: options.itemDeleteError || null,
                 }),
               }),
-              insert: vi.fn().mockResolvedValue({
-                error: options.itemInsertError || null,
+              insert: vi.fn((rows: any) => {
+                insertedItems = rows;
+                return Promise.resolve({
+                  error: options.itemInsertError || null,
+                });
               }),
             };
           }
@@ -297,10 +322,23 @@ describe("Database Write-Error Handling & Snapshot Integrity", () => {
               select: vi.fn().mockReturnValue({
                 eq: vi.fn().mockResolvedValue({ data: [], error: null }),
               }),
+              delete: vi.fn().mockReturnValue({
+                eq: vi.fn().mockResolvedValue({
+                  error: options.vendorDeleteError || null,
+                }),
+              }),
+              insert: vi.fn((rows: any) => {
+                insertedVendors = rows;
+                return Promise.resolve({
+                  error: options.vendorInsertError || null,
+                });
+              }),
             };
           }
           return {};
         }),
+        _getInsertedItems: () => insertedItems,
+        _getInsertedVendors: () => insertedVendors,
       };
 
       (createClient as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(mockSupabase);
@@ -380,6 +418,65 @@ describe("Database Write-Error Handling & Snapshot Integrity", () => {
       expect(res.status).toBe(500);
       const json = await res.json();
       expect(json.stage).toBe("items_insert");
+    });
+
+    it("restores vendors, plan_b, and is_non_negotiable from snapshot", async () => {
+      const mock = setupRestoreMock();
+
+      const req = new NextRequest("http://localhost:3000/api/versions/restore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ occasionId, targetVersionNo: 1 }),
+      });
+
+      const res = await restoreVersionRoute(req);
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.success).toBe(true);
+
+      // Verify plan items received plan_b and is_non_negotiable
+      const items = mock._getInsertedItems();
+      expect(items.length).toBe(1);
+      expect(items[0].title).toBe("Music");
+      expect(items[0].plan_b).toBe("Spotify playlist");
+      expect(items[0].is_non_negotiable).toBe(true);
+
+      // Verify vendors were recreated
+      const vendors = mock._getInsertedVendors();
+      expect(vendors.length).toBe(1);
+      expect(vendors[0].name).toBe("DJ Live");
+      expect(vendors[0].category).toBe("music");
+      expect(vendors[0].quote_amount).toBe("500.00");
+    });
+
+    it("returns HTTP 500 when vendors delete fails during restore", async () => {
+      setupRestoreMock({ vendorDeleteError: { message: "Lock timeout on vendors" } });
+
+      const req = new NextRequest("http://localhost:3000/api/versions/restore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ occasionId, targetVersionNo: 1 }),
+      });
+
+      const res = await restoreVersionRoute(req);
+      expect(res.status).toBe(500);
+      const json = await res.json();
+      expect(json.stage).toBe("vendors_clear");
+    });
+
+    it("returns HTTP 500 when vendors insert fails during restore", async () => {
+      setupRestoreMock({ vendorInsertError: { message: "Unique constraint violation on vendors" } });
+
+      const req = new NextRequest("http://localhost:3000/api/versions/restore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ occasionId, targetVersionNo: 1 }),
+      });
+
+      const res = await restoreVersionRoute(req);
+      expect(res.status).toBe(500);
+      const json = await res.json();
+      expect(json.stage).toBe("vendors_insert");
     });
   });
 

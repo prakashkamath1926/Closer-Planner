@@ -171,6 +171,8 @@ export async function POST(req: NextRequest) {
     }
 
     // 7. Replace live plan_items with restored snapshot items
+    // Note: Sequential database operations; if a subsequent write fails, an error response is returned
+    // identifying the exact failure stage.
     // First, delete current live items for this occasion
     const { error: deleteError } = await supabase.from("plan_items").delete().eq("occasion_id", occasionId);
     if (deleteError) {
@@ -191,13 +193,16 @@ export async function POST(req: NextRequest) {
         intent_tag: (item.intent_tag as string) || null,
         why: (item.why as string) || null,
         status: (item.status as "todo" | "doing" | "done" | "skipped") || "todo",
+        due_at: (item.due_at as string) || null,
         estimated_cost: item.estimated_cost ? String(item.estimated_cost) : "0.00",
         confirmed_cost: item.confirmed_cost ? String(item.confirmed_cost) : null,
         cost_status: (item.cost_status as "estimate" | "quoted" | "confirmed") || "estimate",
         depends_on: (item.depends_on as string[]) || [],
+        plan_b: (item.plan_b as string) || null,
         is_fallback: Boolean(item.is_fallback),
         fallback_for: (item.fallback_for as string) || null,
-        sort_order: idx,
+        is_non_negotiable: Boolean(item.is_non_negotiable),
+        sort_order: typeof item.sort_order === "number" ? item.sort_order : idx,
       }));
 
       const { error: insertRestoredError } = await supabase
@@ -208,6 +213,45 @@ export async function POST(req: NextRequest) {
         console.error("Failed to insert restored items:", insertRestoredError);
         return NextResponse.json(
           { error: "Failed to insert restored plan items", stage: "items_insert" },
+          { status: 500 },
+        );
+      }
+    }
+
+    // 8. Replace live vendors with restored snapshot vendors
+    // First, delete current live vendors for this occasion
+    const { error: deleteVendorsError } = await supabase.from("vendors").delete().eq("occasion_id", occasionId);
+    if (deleteVendorsError) {
+      console.error("Failed to delete current vendors during restore:", deleteVendorsError);
+      return NextResponse.json(
+        { error: "Failed to clear current vendors while restoring version", stage: "vendors_clear" },
+        { status: 500 },
+      );
+    }
+
+    // Re-insert exact snapshot vendors
+    if (restoreResult.stateToRestore.vendors && restoreResult.stateToRestore.vendors.length > 0) {
+      const vendorsToInsert = restoreResult.stateToRestore.vendors.map((vendor, idx) => ({
+        id: vendor.id,
+        occasion_id: occasionId,
+        name: vendor.name,
+        category: (vendor.category as string) || "other",
+        contact: (vendor.contact as string) || null,
+        status: (vendor.status as "suggested" | "verified" | "contacted" | "confirmed" | "declined") || "suggested",
+        quote_amount: vendor.quote_amount !== undefined && vendor.quote_amount !== null ? String(vendor.quote_amount) : null,
+        quote_notes: (vendor.quote_notes as string) || null,
+        quote_fields: (vendor.quote_fields as Json) || {},
+        priority: typeof vendor.priority === "number" ? vendor.priority : idx + 1,
+      }));
+
+      const { error: insertVendorsError } = await supabase
+        .from("vendors")
+        .insert(vendorsToInsert);
+
+      if (insertVendorsError) {
+        console.error("Failed to insert restored vendors:", insertVendorsError);
+        return NextResponse.json(
+          { error: "Failed to insert restored vendors", stage: "vendors_insert" },
           { status: 500 },
         );
       }

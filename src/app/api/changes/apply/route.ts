@@ -366,8 +366,9 @@ export async function POST(req: NextRequest) {
     }
 
     // 10. Mark version snapshot as completed
+    let completionPersistError: string | null = null;
     try {
-      const updateQuery = supabase.from("plan_versions").update?.({
+      const updateBuilder = supabase.from("plan_versions").update({
         snapshot: {
           ...currentSnapshot,
           idempotency_key: idempotencyKey,
@@ -375,14 +376,33 @@ export async function POST(req: NextRequest) {
           completed_at: new Date().toISOString(),
         } as unknown as Json,
       });
-      if (updateQuery && typeof updateQuery.eq === "function") {
-        const q2 = updateQuery.eq("occasion_id", occasionId);
+
+      if (updateBuilder && typeof updateBuilder.eq === "function") {
+        const q2 = updateBuilder.eq("occasion_id", occasionId);
         if (q2 && typeof q2.eq === "function") {
-          await q2.eq("version_no", newVersionNo);
+          const { error: updateError } = await q2.eq("version_no", newVersionNo);
+          if (updateError) {
+            completionPersistError = updateError.message || "Database error updating completion status";
+          }
         }
       }
     } catch (completeError) {
-      console.warn("Failed to mark version as completed in snapshot:", completeError);
+      completionPersistError = completeError instanceof Error ? completeError.message : String(completeError);
+    }
+
+    if (completionPersistError) {
+      console.error("Failed to mark version as completed in snapshot:", completionPersistError);
+      return NextResponse.json(
+        {
+          error: "Plan mutations were successfully applied, but the system could not record the completion status in version history.",
+          code: "completion_status_update_failed",
+          stage: "completion_status_update",
+          details: completionPersistError,
+          versionNo: newVersionNo,
+          idempotencyKey,
+        },
+        { status: 500 },
+      );
     }
 
     return NextResponse.json({

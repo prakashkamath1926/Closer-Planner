@@ -143,6 +143,15 @@ export async function POST(req: NextRequest) {
 
       if (itemsError) {
         console.error("Failed to insert plan items:", itemsError);
+        return NextResponse.json(
+          {
+            error: "Occasion created, but failed to save plan items. The plan is incomplete.",
+            stage: "items_insert",
+            occasionId,
+            details: itemsError.message,
+          },
+          { status: 500 },
+        );
       }
     }
 

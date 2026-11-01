@@ -520,6 +520,93 @@ describe("POST /api/changes/apply Idempotency Key Replay Protection", () => {
     expect(body.code).toBe("concurrent_modification");
   });
 
+  it("completion update failure: when plan mutations succeed but marking as completed fails, returns explicit 500 completion_status_update_failed (never success: true)", async () => {
+    const brokenCompleteSupabase = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: userId } },
+          error: null,
+        }),
+      },
+      from: vi.fn((table: string) => {
+        if (table === "occasions") {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: { id: occasionId, owner_id: userId, title: "Anniversary" },
+              error: null,
+            }),
+            update: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }),
+          };
+        }
+        if (table === "plan_items") {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            order: vi.fn().mockResolvedValue({ data: [], error: null }),
+            update: vi.fn().mockReturnValue({ eq: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }) }),
+            delete: vi.fn().mockReturnValue({ eq: vi.fn().mockReturnValue({ in: vi.fn().mockResolvedValue({ error: null }) }) }),
+            insert: vi.fn().mockResolvedValue({ error: null }),
+          };
+        }
+        if (table === "vendors") {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+          };
+        }
+        if (table === "plan_versions") {
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                order: vi.fn(() => ({
+                  limit: vi.fn(() => Promise.resolve({ data: [], error: null })),
+                })),
+                then: (resolve: any) => resolve({ data: [], error: null }),
+              })),
+            })),
+            insert: vi.fn((row: any) => {
+              insertCount++;
+              versionsStore.push(row);
+              return Promise.resolve({ error: null });
+            }),
+            // Failure when marking completed
+            update: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                eq: vi.fn().mockResolvedValue({
+                  error: { message: "Disk full while persisting completed status" },
+                }),
+              })),
+            })),
+          };
+        }
+        return {};
+      }),
+    };
+
+    (createClient as any).mockResolvedValue(brokenCompleteSupabase);
+
+    const req = new NextRequest("http://localhost:3000/api/changes/apply", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        occasionId,
+        chosenOption: sampleTradeoff,
+        idempotencyKey: "complete-fail-key-1",
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.success).toBeUndefined();
+    expect(body.code).toBe("completion_status_update_failed");
+    expect(body.stage).toBe("completion_status_update");
+    expect(body.details).toContain("Disk full");
+    expect(body.idempotencyKey).toBe("complete-fail-key-1");
+  });
+
   it("rejects request if idempotencyKey is missing (required)", async () => {
     const reqWithoutKey = new NextRequest("http://localhost:3000/api/changes/apply", {
       method: "POST",
