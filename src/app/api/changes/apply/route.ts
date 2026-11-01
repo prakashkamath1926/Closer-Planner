@@ -21,7 +21,7 @@ const applyChangeRequestSchema = z.object({
   newBudgetTotal: z.number().nonnegative().optional().nullable(),
   newEventAt: z.string().optional().nullable(),
   newGuestCount: z.number().int().nonnegative().optional().nullable(),
-  idempotencyKey: z.string().optional(),
+  idempotencyKey: z.string().min(1),
 });
 
 export async function POST(req: NextRequest) {
@@ -60,7 +60,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Occasion not found" }, { status: 404 });
     }
 
-    // 2. Fetch current plan items and vendors
+    // 2. Check for idempotent replay: look up plan_versions for this occasion with snapshot->>'idempotency_key' equal to the key
+    const { data: existingVersions } = await supabase
+      .from("plan_versions")
+      .select("version_no, change_summary, snapshot")
+      .eq("occasion_id", occasionId);
+
+    const replayedVersion = existingVersions?.find(
+      (v) => (v.snapshot as Record<string, unknown>)?.idempotency_key === idempotencyKey,
+    );
+
+    if (replayedVersion) {
+      return NextResponse.json({
+        success: true,
+        newVersionNo: replayedVersion.version_no,
+        changeSummary: replayedVersion.change_summary,
+      });
+    }
+
+    // 3. Fetch current plan items and vendors
     const { data: items } = await supabase
       .from("plan_items")
       .select("*")
