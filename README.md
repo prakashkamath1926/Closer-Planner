@@ -36,7 +36,7 @@ Once that emotional direction is clear, Closer turns it into a concrete plan wit
 
 Closer currently supports:
 - 💡 **Three ways to start a plan**: guided discovery, concrete vision, or rapid tonight-flow
-- 💰 **Code-computed budget and timeline**: zero floating-point arithmetic errors, validated dependency graphs
+- 💰 **Code-computed budget and timeline**: integer minor units, no floating-point drift, validated dependency graphs
 - 🔁 **Change proposals with undo**: AI proposes trade-offs; applying creates snapshots with instant rollback
 - 🤝 **Vendor suggestions & quote parsing**: extract structured quotes from raw WhatsApp or email text
 - 🎁 **Surprise Shield**: keep budgets, notes, and early ideas strictly confidential from the recipient
@@ -68,7 +68,7 @@ Closer is a hackathon project and a planning aid, not a booking service.
 - **AI suggestions are proposals**: You review and approve every decision.
 - **Costs are estimates or quotes**: The AI cannot mark a price as confirmed.
 - **Explicit fallbacks**: When the AI is unavailable, Closer says so and uses a labelled template (`source: "fallback"`).
-- **Zero key leakage**: A request using your own API key never silently falls back to the server's key.
+- **Your key stays yours**: A request using your own API key never silently falls back to the server's key.
 - **Known limitations** are listed openly below.
 
 ---
@@ -133,10 +133,10 @@ flowchart TD
 ## 🔐 Security
 
 - **Row Level Security**: Enabled across all tables in `schema.sql`. Users can only access their own records.
-- **Headers**: Strict Content Security Policy, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, and HSTS.
+- **Headers**: Content Security Policy, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, and HSTS (see `next.config.ts`).
 - **Rate limiting**: PostgreSQL-backed `rate_limit_hit()` with an in-memory fallback (10 requests / 60 seconds on AI endpoints).
 - **BYOK**: Keys live in browser `sessionStorage` for the tab session, are sent per request in custom headers, and are never stored or logged server-side.
-- **Server-only secrets**: Supabase service-role client and AI keys import `server-only`.
+- **Server-only secrets**: The Supabase service-role client and the environment loader import `server-only`.
 
 ---
 
@@ -183,8 +183,8 @@ Closer/
 
 ## ⚙️ Requirements
 
-- Node.js 20.9 or newer (tested on 22.x)
-- npm 10.x or newer
+- Node.js 20.9 or newer
+- npm
 - A Supabase project
 - A Groq and/or Google AI Studio API key for AI features
 
@@ -243,7 +243,7 @@ Closer runs on Vercel with a Supabase backend.
 2. **Email provider**: Enable in **Authentication > Providers > Email**.
 3. **Google sign-in**: Enable the Google provider.
    - In Google Cloud Console, set the Authorized Redirect URI to Supabase's callback: `https://<project-ref>.supabase.co/auth/v1/callback`.
-   - In Supabase (**Authentication > URL Configuration > Redirect URLs**), add `${origin}/auth/callback`.
+   - In Supabase (**Authentication > URL Configuration > Redirect URLs**), add `https://<your-domain>/auth/callback`.
 4. **Site URL**: Set your production domain in Supabase URL Configuration (e.g. `https://closer-planner.vercel.app`).
 5. **Database**: Run `schema.sql` in the Supabase SQL editor.
 6. **Environment variables**: Add the environment variables in Vercel Project Settings.
@@ -265,7 +265,7 @@ Closer runs on Vercel with a Supabase backend.
 
 ## 🤖 Built with AI
 
-Generative AI helped draft initial schemas, tests, and component scaffolding. The human developer established all core constraints, directed the *Honest by Design* philosophy, authored the deterministic financial and DAG engines, and verified every database policy and security boundary. Full prompts and design evolutions are documented in [`PROMPT_LOG.md`](PROMPT_LOG.md).
+Generative AI helped draft code, schemas, tests and prompts, and it is also part of the product. The developer set the product direction and the rules (honest by design, human approval for changes, the Shield enforced on the server), chose between options, and ran the tests, reviews and security audit. Full prompts and design evolutions are in [`PROMPT_LOG.md`](PROMPT_LOG.md).
 
 ---
 
