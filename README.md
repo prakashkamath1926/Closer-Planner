@@ -257,7 +257,7 @@ Closer runs on Vercel with a Supabase backend.
 - **CSP unsafe-inline**: The CSP permits `'unsafe-inline'` for script and style tags to accommodate runtime hydration.
 - **Rate limiting scope**: The in-memory rate limiter and model cooldown are per server instance.
 - **Integration test gating**: Live Supabase RLS tests only run with `SUPABASE_INTEGRATION_TEST=true`; standard CI uses embedded PGlite.
-- **Pre-confirmed signups**: Accounts are created pre-confirmed without an outbound email verification roundtrip.
+- **Pre-confirmed signups**: Accounts are created pre-confirmed, so email ownership is not verified.
 
 *See [`AUDIT-SECURITY.md`](AUDIT-SECURITY.md) for the detailed security audit.*
 

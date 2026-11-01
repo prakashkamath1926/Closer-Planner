@@ -75,7 +75,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         error: "Internal server error during celebration planning",
-        detail: (error as Error)?.message || "Unknown error",
       },
       { status: 500 },
     );

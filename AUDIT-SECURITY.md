@@ -1,5 +1,22 @@
 # Security Audit Report
 
+## Status update (final)
+
+This report is a snapshot from 2026-11-01 11:21 IST. Findings below marked FAIL were addressed afterwards on the `security-fixes` and `hardening` branches, both merged to main.
+
+| Finding | Status Now | Evidence |
+|---|---|---|
+| **Blend Questions IDOR** (RLS bypass reading occasion facts via unauthenticated endpoint) | Fixed | Source: [`src/app/api/blend/questions/route.ts`](src/app/api/blend/questions/route.ts#L45-L88) gates access to owner session via RLS-bound client or valid unexpired share token hash. Passing test: [`tests/security/blend-questions.test.ts`](tests/security/blend-questions.test.ts). |
+| **OAuth Occasion Claim** (unverified ownership transfer via `?claim=` query parameter) | Fixed | Source: [`src/app/auth/callback/route.ts`](src/app/auth/callback/route.ts#L24-L54) verifies pre-auth anonymous session and restricts update to `owner_id = anonId`. Passing test: [`tests/auth/callback.test.ts`](tests/auth/callback.test.ts). |
+| **Change-Apply Idempotency Replay** (duplicate snapshot on network retry) | Fixed | Source: [`src/app/api/changes/apply/route.ts`](src/app/api/changes/apply/route.ts#L68-L85) queries existing snapshots for matching `idempotency_key` and short-circuits. Passing test: [`tests/security/change-apply-idempotency.test.ts`](tests/security/change-apply-idempotency.test.ts). |
+| **Missing Security Headers** (missing global CSP, HSTS, frame-ancestors, nosniff, permissions policy) | Fixed | Source: [`next.config.ts`](next.config.ts#L18-L72) configures global CSP, X-Frame-Options: DENY, X-Content-Type-Options: nosniff, Strict-Transport-Security, Permissions-Policy, and recipient privacy overrides. Passing test: [`tests/security/headers.test.ts`](tests/security/headers.test.ts). |
+| **Malformed JSON Body Handling** (SyntaxError throwing unhandled HTTP 500) | Fixed | Source: [`src/lib/security/request.ts`](src/lib/security/request.ts#L12-L25) (`parseJsonBody` helper returning HTTP 400 with code `malformed_json`) integrated across all POST/PUT/PATCH API routes. Passing test: [`tests/security/malformed-json.test.ts`](tests/security/malformed-json.test.ts). |
+| **AI Prompt Delimiter Sanitization** (untrusted user input escaping prompt delimiters) | Fixed | Source: [`src/lib/ai/prompts/*.ts`](src/lib/ai/prompts/) wraps all untrusted inputs in `<user_data>` and strips `</?user_data>` tags from user inputs. Passing test: [`tests/security/prompt-delimiters.test.ts`](tests/security/prompt-delimiters.test.ts). |
+
+Remaining limitations and architectural trade-offs are listed in [`SECURITY.md`](SECURITY.md).
+
+---
+
 - **Date / Time**: 2026-11-01T11:21:40+05:30
 - **Starting Branch**: `main` (commit `6ccaeea`)
 - **Audit Branch**: `audit`
