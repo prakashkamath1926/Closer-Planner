@@ -400,7 +400,7 @@ export function PlanView({
                     {countdown.isPast
                       ? "Arrived"
                       : countdown.isToday
-                      ? "Tonight!"
+                      ? "Today!"
                       : `${countdown.days}d ${countdown.hours}h left`}
                   </span>
                 </>
@@ -516,7 +516,7 @@ export function PlanView({
           <div>
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center rounded-full bg-peach/40 px-2.5 py-0.5 text-xs font-medium text-plum capitalize">
-                {currentUrgency.replace("_", " ")}
+                {currentUrgency === "tonight" ? "Today" : currentUrgency.replace("_", " ")}
               </span>
               {occasion.recipient_name && (
                 <span className="text-xs font-medium text-mauve">

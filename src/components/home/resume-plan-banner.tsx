@@ -20,11 +20,28 @@ export function ResumePlanHero() {
 
   useEffect(() => {
     fetch("/api/user/occasions")
-      .then((res) => (res.ok ? res.json() : { occasions: [] }))
+      .then((res) => (res.ok ? res.json() : { occasions: [], isAuthenticated: false }))
       .then((data) => {
-        if (data.occasions && data.occasions.length > 0) {
-          setOccasions(data.occasions);
+        if (data.isAuthenticated) {
+          // Signed-in user: ONLY show occasions belonging to this account from the database
+          if (data.occasions && data.occasions.length > 0) {
+            setOccasions(data.occasions);
+            try {
+              localStorage.setItem("closer_last_occasion", JSON.stringify(data.occasions[0]));
+            } catch {
+              // Ignore
+            }
+          } else {
+            // Signed-in user has no plans: clear any previous user's stale cached occasion
+            setOccasions([]);
+            try {
+              localStorage.removeItem("closer_last_occasion");
+            } catch {
+              // Ignore
+            }
+          }
         } else {
+          // Anonymous visitor: check local storage for currently active plan
           try {
             const raw = localStorage.getItem("closer_last_occasion");
             if (raw) {
@@ -49,27 +66,7 @@ export function ResumePlanHero() {
         }
       })
       .catch(() => {
-        try {
-          const raw = localStorage.getItem("closer_last_occasion");
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (parsed?.id && parsed?.title) {
-              setOccasions([
-                {
-                  id: parsed.id,
-                  title: parsed.title,
-                  occasion_type: parsed.occasion_type || "celebration",
-                  recipient_name: parsed.recipient_name || null,
-                  event_at: parsed.event_at || null,
-                  status: "planning",
-                  updated_at: new Date().toISOString(),
-                },
-              ]);
-            }
-          }
-        } catch {
-          // Ignore
-        }
+        setOccasions([]);
       })
       .finally(() => {
         setLoading(false);

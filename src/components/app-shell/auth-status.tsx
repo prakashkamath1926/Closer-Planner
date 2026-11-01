@@ -55,6 +55,12 @@ export function AuthStatus() {
       setIsSigningOut(true);
       const supabase = createClient();
       await supabase.auth.signOut();
+      try {
+        localStorage.removeItem("closer_last_occasion");
+        sessionStorage.clear();
+      } catch {
+        // Ignore storage errors
+      }
       router.push("/");
       router.refresh();
     } catch {

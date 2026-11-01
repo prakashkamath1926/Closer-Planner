@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useSyncExternalStore } from "react";
+import React, { useState, useMemo, useSyncExternalStore, useEffect, useRef } from "react";
 import { Clock, Download, ListOrdered, CalendarDays, ShieldAlert, CheckCircle2, AlertCircle, AlertTriangle, Calendar, Star } from "lucide-react";
 import { calculateEventCountdown } from "@/lib/engine/countdown";
 import { generateOccasionIcs } from "@/lib/engine/ics";
@@ -54,6 +54,15 @@ function useHasNotificationSupport() {
 }
 
 function toLocalDateKey(dateInput: string | Date): string {
+  if (!dateInput) return "";
+  if (typeof dateInput === "string") {
+    const trimmed = dateInput.trim();
+    const dateOnlyMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    // If it's a date-only string or ISO string, extract the calendar date
+    if (trimmed.length === 10 && dateOnlyMatch) {
+      return dateOnlyMatch[0];
+    }
+  }
   const dt = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
   if (isNaN(dt.getTime())) return "";
   const y = dt.getFullYear();
@@ -87,6 +96,16 @@ export function CalendarView({ occasion, items, onOpenChangeModal }: CalendarVie
       try {
         const perm = await Notification.requestPermission();
         setNotificationStatus(perm);
+        if (perm === "granted") {
+          try {
+            new Notification(`Alerts Enabled for ${occasion.title}`, {
+              body: "You'll be notified of upcoming celebration tasks and milestones.",
+              icon: "/favicon.ico",
+            });
+          } catch {
+            // Some environments restrict Notification instantiation
+          }
+        }
       } catch {
         setNotificationStatus("denied");
       }
@@ -160,6 +179,55 @@ export function CalendarView({ occasion, items, onOpenChangeModal }: CalendarVie
       })
       .sort((a, b) => a.dueMs - b.dueMs);
   }, [items, nowMs]);
+
+  // Track notified task IDs and celebration alerts so duplicate notifications are never sent
+  const notifiedKeysRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (
+      notificationStatus !== "granted" ||
+      typeof window === "undefined" ||
+      !("Notification" in window) ||
+      Notification.permission !== "granted" ||
+      !nowMs
+    ) {
+      return;
+    }
+
+    // 1. Check celebration event_at arrival
+    if (occasion.event_at) {
+      const eventTime = new Date(occasion.event_at).getTime();
+      const eventKey = `event-${occasion.id}`;
+      if (!notifiedKeysRef.current.has(eventKey) && nowMs >= eventTime && nowMs - eventTime < 1000 * 60 * 30) {
+        notifiedKeysRef.current.add(eventKey);
+        try {
+          new Notification(`Celebration Time: ${occasion.title}!`, {
+            body: "Your celebration has officially arrived!",
+            icon: "/favicon.ico",
+          });
+        } catch {
+          // Ignore
+        }
+      }
+    }
+
+    // 2. Check dated tasks that are due right now (within past 5 minutes)
+    datedTasks.forEach((task) => {
+      if (task.isDone || !task.dueMs) return;
+      const taskKey = `task-${task.id}`;
+      if (!notifiedKeysRef.current.has(taskKey) && nowMs >= task.dueMs && nowMs - task.dueMs < 1000 * 60 * 5) {
+        notifiedKeysRef.current.add(taskKey);
+        try {
+          new Notification(`Task Due: ${task.title}`, {
+            body: `Celebration task for ${occasion.title} is due now.`,
+            icon: "/favicon.ico",
+          });
+        } catch {
+          // Ignore
+        }
+      }
+    });
+  }, [nowMs, notificationStatus, occasion.id, occasion.title, occasion.event_at, datedTasks]);
 
   // Month grid calculation
   const [prevEventAt, setPrevEventAt] = useState(occasion.event_at);
@@ -359,7 +427,7 @@ export function CalendarView({ occasion, items, onOpenChangeModal }: CalendarVie
             }`}
           >
             <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>&ldquo;Tonight&rdquo; Run Sheet</span>
+            <span>&ldquo;Today&rdquo; Run Sheet</span>
           </button>
         </div>
 
@@ -554,7 +622,7 @@ export function CalendarView({ occasion, items, onOpenChangeModal }: CalendarVie
         </div>
       )}
 
-      {/* Tab 3: Tonight Mode Run Sheet */}
+      {/* Tab 3: Today Mode Run Sheet */}
       {activeTab === "runsheet" && (
         <div className="mt-4">
           <div className="mb-3 rounded-lg bg-sand/60 p-3 text-xs text-mauve">
@@ -564,7 +632,7 @@ export function CalendarView({ occasion, items, onOpenChangeModal }: CalendarVie
 
           {runSheetSlots.length === 0 ? (
             <p className="py-6 text-center text-xs text-mauve">
-              No plan tasks available to generate the Tonight run sheet.
+              No plan tasks available to generate the Today run sheet.
             </p>
           ) : (
             <div className="space-y-2.5">

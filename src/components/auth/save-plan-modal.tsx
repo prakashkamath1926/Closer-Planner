@@ -105,20 +105,24 @@ export function SavePlanModal({ isOpen, onClose, occasionId, onUpgraded }: SaveP
       const origin = typeof window !== "undefined" ? window.location.origin : "";
       const returnPath = occasionId ? `/plan/${occasionId}` : "/";
 
-      // Link Google identity to the existing anonymous user account
-      const { error } = await supabase.auth.linkIdentity({
+      // Initiate Google OAuth with return path and claim param so ownership transfers seamlessly
+      const callbackUrl = `${origin}/auth/callback?next=${encodeURIComponent(returnPath)}${
+        occasionId ? `&claim=${encodeURIComponent(occasionId)}` : ""
+      }`;
+
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(returnPath)}`,
+          redirectTo: callbackUrl,
         },
       });
 
       if (error) {
-        setErrorMessage("Could not connect with Google.");
+        setErrorMessage(error.message || "Could not connect with Google.");
         setIsGooglePending(false);
       }
     } catch {
-      setErrorMessage("Could not link Google account.");
+      setErrorMessage("Could not connect with Google.");
       setIsGooglePending(false);
     }
   };
@@ -131,9 +135,10 @@ export function SavePlanModal({ isOpen, onClose, occasionId, onUpgraded }: SaveP
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-plum/50 backdrop-blur-xs"
+      className="fixed inset-0 z-50 overflow-y-auto bg-plum/50 backdrop-blur-xs p-3 sm:p-4"
     >
-      <div className="relative w-full max-w-md max-h-[min(94vh,560px)] overflow-y-auto rounded-3xl border border-blush bg-white p-5 sm:p-6 text-left shadow-2xl">
+      <div className="flex min-h-full items-center justify-center py-4">
+        <div className="relative my-auto w-full max-w-md rounded-3xl border border-blush bg-white p-5 sm:p-6 text-left shadow-2xl">
         <button
           type="button"
           onClick={onClose}
@@ -304,7 +309,8 @@ export function SavePlanModal({ isOpen, onClose, occasionId, onUpgraded }: SaveP
           </>
         )}
       </div>
-    </div>,
-    document.body,
-  );
+    </div>
+  </div>,
+  document.body,
+);
 }

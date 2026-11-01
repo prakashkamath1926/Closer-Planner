@@ -166,9 +166,10 @@ export function AiSettingsDialog() {
       onClick={(e) => {
         if (e.target === e.currentTarget) setIsOpen(false);
       }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-plum/50 backdrop-blur-xs"
+      className="fixed inset-0 z-50 overflow-y-auto bg-plum/50 backdrop-blur-xs p-3 sm:p-4"
     >
-      <div className="relative w-full max-w-lg max-h-[min(92vh,680px)] overflow-y-auto rounded-3xl border border-blush bg-white p-5 sm:p-8 text-left shadow-2xl">
+      <div className="flex min-h-full items-center justify-center py-4">
+        <div className="relative my-auto w-full max-w-lg rounded-3xl border border-blush bg-white p-5 sm:p-8 text-left shadow-2xl">
         {/* Close Button */}
         <button
           type="button"
@@ -403,7 +404,8 @@ export function AiSettingsDialog() {
           </div>
         </div>
       </div>
-    </div>,
-    document.body,
-  );
+    </div>
+  </div>,
+  document.body,
+);
 }

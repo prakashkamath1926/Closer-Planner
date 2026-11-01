@@ -11,7 +11,7 @@ export async function GET() {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json({ occasions: [] });
+      return NextResponse.json({ occasions: [], isAuthenticated: false });
     }
 
     const { data: occasions, error: occError } = await supabase
@@ -22,13 +22,13 @@ export async function GET() {
 
     if (occError) {
       console.error("GET /api/user/occasions error:", occError);
-      return NextResponse.json({ occasions: [] });
+      return NextResponse.json({ occasions: [], isAuthenticated: true });
     }
 
-    return NextResponse.json({ occasions: occasions || [] });
+    return NextResponse.json({ occasions: occasions || [], isAuthenticated: true });
   } catch (err) {
     console.error("GET /api/user/occasions exception:", err);
-    return NextResponse.json({ occasions: [] });
+    return NextResponse.json({ occasions: [], isAuthenticated: false });
   }
 }
 
