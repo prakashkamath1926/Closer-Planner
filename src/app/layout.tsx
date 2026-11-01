@@ -50,6 +50,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${fraunces.variable} ${dmSans.variable} ${caveat.variable} h-full antialiased`}
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: "globalThis.__zod_globalConfig={jitless:true};",
+          }}
+        />
+      </head>
       <body className="flex min-h-full flex-col">
         {/*
          * SessionBootstrapper is behind Suspense because it reads cookies()
