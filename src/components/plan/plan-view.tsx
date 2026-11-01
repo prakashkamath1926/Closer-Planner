@@ -178,6 +178,18 @@ export function PlanView({
 
   const [lastAppliedSummary, setLastAppliedSummary] = useState<string | null>(null);
 
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem("last_applied_summary");
+      if (stored) {
+        setLastAppliedSummary(stored);
+        sessionStorage.removeItem("last_applied_summary");
+      }
+    } catch {
+      // Ignore storage exceptions
+    }
+  }, []);
+
   // Derived budget calculation
   const budgetSummary: BudgetSummary = useMemo(() => {
     return calculateBudget(occasion.budget_total, items, occasion.currency || "INR");
@@ -324,6 +336,10 @@ export function PlanView({
         body: JSON.stringify({
           occasionId: occasion.id,
           chosenOption: swapTradeoff,
+          idempotencyKey:
+            typeof crypto !== "undefined" && crypto.randomUUID
+              ? crypto.randomUUID()
+              : `swap-${Date.now()}`,
         }),
       });
 
@@ -336,15 +352,14 @@ export function PlanView({
   };
 
   const handleUndoRecent = async () => {
-    if (versions.length === 0) return;
-    const latestVersion = versions[0];
+    const targetVersionNo = versions.length > 0 ? versions[0].version_no : 1;
     try {
       const res = await fetch("/api/versions/restore", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           occasionId: occasion.id,
-          targetVersionNo: latestVersion.version_no,
+          targetVersionNo,
         }),
       });
       if (res.ok) {
@@ -896,6 +911,11 @@ export function PlanView({
         newConstraints={newConstraints}
         onClose={() => setIsTradeoffModalOpen(false)}
         onTradeoffApplied={(summary) => {
+          try {
+            sessionStorage.setItem("last_applied_summary", summary);
+          } catch {
+            // Ignore storage exceptions
+          }
           setLastAppliedSummary(summary);
           // Refresh window to load new database state
           window.location.reload();

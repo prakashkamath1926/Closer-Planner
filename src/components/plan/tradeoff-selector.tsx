@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { X, AlertTriangle } from "lucide-react";
 import type { ProposeTradeoffsResponse } from "@/lib/ai/schemas";
 
@@ -28,17 +28,40 @@ export function TradeoffSelector({
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [isApplying, setIsApplying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const attemptKeyRef = useRef<string | null>(null);
+
+  // Reset attempt key whenever the modal closes or a new tradeoff set arrives
+  useEffect(() => {
+    if (!isOpen) {
+      attemptKeyRef.current = null;
+    }
+  }, [isOpen, tradeoffs]);
 
   if (!isOpen || !tradeoffs) return null;
 
   const options = tradeoffs.options || [];
 
+  const handleSelectOption = (optId: string) => {
+    setSelectedOptionId(optId);
+    attemptKeyRef.current = null;
+  };
+
   const handleApply = async () => {
+    if (isApplying) return; // Prevent repeat clicks while request is in flight
     const chosenOption = options.find((o) => o.id === selectedOptionId);
     if (!chosenOption) return;
 
     setIsApplying(true);
     setError(null);
+
+    // Reuse key on retry of the same attempt, generate new UUID once per apply attempt
+    if (!attemptKeyRef.current) {
+      attemptKeyRef.current =
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `apply-${chosenOption.id}-${Date.now()}`;
+    }
+    const currentKey = attemptKeyRef.current;
 
     try {
       const res = await fetch("/api/changes/apply", {
@@ -50,7 +73,7 @@ export function TradeoffSelector({
           newBudgetTotal: newConstraints.newBudgetTotal,
           newEventAt: newConstraints.newEventAt,
           newGuestCount: newConstraints.newGuestCount,
-          idempotencyKey: `apply-${chosenOption.id}-${Date.now()}`,
+          idempotencyKey: currentKey,
         }),
       });
 
@@ -60,6 +83,7 @@ export function TradeoffSelector({
       }
 
       const data = await res.json();
+      attemptKeyRef.current = null;
       onTradeoffApplied(data.changeSummary || chosenOption.title);
       onClose();
     } catch (err: unknown) {
@@ -122,7 +146,7 @@ export function TradeoffSelector({
             return (
               <div
                 key={opt.id}
-                onClick={() => setSelectedOptionId(opt.id)}
+                onClick={() => handleSelectOption(opt.id)}
                 className={`relative flex flex-col justify-between rounded-3xl border p-5 cursor-pointer transition-all ${
                   isSelected
                     ? "border-rose bg-white shadow-md ring-2 ring-rose/20"
@@ -138,7 +162,7 @@ export function TradeoffSelector({
                       type="radio"
                       name="tradeoff-selection"
                       checked={isSelected}
-                      onChange={() => setSelectedOptionId(opt.id)}
+                      onChange={() => handleSelectOption(opt.id)}
                       className="accent-rose h-4 w-4"
                     />
                   </div>
@@ -216,8 +240,10 @@ export function TradeoffSelector({
             </button>
             <button
               type="button"
-              onClick={handleApply}
+              onClick={isApplying ? undefined : handleApply}
               disabled={!selectedOptionId || isApplying}
+              aria-disabled={!selectedOptionId || isApplying}
+              data-testid="apply-tradeoff-button"
               className="rounded-full bg-rose px-6 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-roseDeep transition-colors disabled:opacity-50"
             >
               {isApplying ? "Applying & Saving Snapshot..." : "Apply Chosen Trade-Off"}
