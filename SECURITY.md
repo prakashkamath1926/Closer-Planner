@@ -42,9 +42,9 @@ Closer is designed with an **honest-by-design** and **security-first** architect
 
 If you discover a security vulnerability within Closer, please disclose it responsibly.
 
-- **Security Contact**: `security@example.com` (placeholder)
-- **Response Time**: We aim to acknowledge receipt of security reports within 48 hours and provide a remediation plan within 5 business days.
-- **Guidelines**:
-  - Please include detailed steps to reproduce the issue (proof-of-concept script, request payloads, and affected versions/endpoints).
-  - Do not exploit the vulnerability beyond what is necessary to confirm its presence.
-  - Do not disclose the vulnerability publicly until a fix has been released.
+To report a security vulnerability, please open a private security advisory through this GitHub repository.
+
+### Guidelines
+- Please include detailed steps to reproduce the issue (proof-of-concept script, request payloads, and affected versions/endpoints).
+- Do not exploit the vulnerability beyond what is necessary to confirm its presence.
+- Do not disclose the vulnerability publicly until a fix has been released.
