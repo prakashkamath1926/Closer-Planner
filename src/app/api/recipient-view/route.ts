@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { parseJsonBody } from "@/lib/security/request";
 
 const recipientViewSchema = z.object({
   occasionId: z.string().uuid(),
@@ -62,8 +63,12 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
 
-    const body = await req.json();
-    const parsed = recipientViewSchema.safeParse(body);
+    const jsonResult = await parseJsonBody(req);
+    if (!jsonResult.success) {
+      return jsonResult.response;
+    }
+
+    const parsed = recipientViewSchema.safeParse(jsonResult.data);
     if (!parsed.success) {
       return NextResponse.json(
         { error: "Invalid recipient view configuration", details: parsed.error.format() },
@@ -102,8 +107,9 @@ export async function PUT(req: NextRequest) {
       .single();
 
     if (error) {
+      console.error("Failed to save recipient view:", error);
       return NextResponse.json(
-        { error: "Failed to save recipient view", details: error.message },
+        { error: "Failed to save recipient view" },
         { status: 500 },
       );
     }
@@ -113,4 +119,3 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
-

@@ -2,10 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createSnapshot } from "@/lib/engine/versions";
+import { parseJsonBody } from "@/lib/security/request";
 import type { Database, Json } from "@/lib/supabase/database.types";
 
+const isoDateSchema = z
+  .string()
+  .refine(
+    (val) => {
+      if (!val || val.trim() === "") return true;
+      const isIsoFormat = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/.test(
+        val,
+      );
+      return isIsoFormat && !isNaN(Date.parse(val));
+    },
+    { message: "eventAt must be a valid ISO date string (YYYY-MM-DD or YYYY-MM-DDTHH:mm:ssZ)" },
+  )
+  .nullable()
+  .optional();
+
 const updateOccasionSchema = z.object({
-  eventAt: z.string().nullable().optional(),
+  eventAt: isoDateSchema,
   budgetTotal: z.number().nonnegative().nullable().optional(),
   guestCount: z.number().int().nonnegative().nullable().optional(),
   title: z.string().min(1).max(100).optional(),
@@ -28,8 +44,12 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
 
-    const body = await req.json();
-    const parseResult = updateOccasionSchema.safeParse(body);
+    const jsonResult = await parseJsonBody(req);
+    if (!jsonResult.success) {
+      return jsonResult.response;
+    }
+
+    const parseResult = updateOccasionSchema.safeParse(jsonResult.data);
     if (!parseResult.success) {
       return NextResponse.json(
         { error: "Invalid parameters", details: parseResult.error.issues },
@@ -64,6 +84,32 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       .select("*")
       .eq("occasion_id", occasionId);
 
+    // Apply updates first with owner check
+    const updates: Database["public"]["Tables"]["occasions"]["Update"] = {};
+    if (eventAt !== undefined) {
+      updates.event_at = eventAt && eventAt.trim() ? eventAt : null;
+    }
+    if (budgetTotal !== undefined) {
+      updates.budget_total = budgetTotal !== null ? budgetTotal.toFixed(2) : null;
+    }
+    if (guestCount !== undefined) updates.guest_count = guestCount;
+    if (title !== undefined) updates.title = title;
+
+    const { data: updatedOccasion, error: updateError } = await supabase
+      .from("occasions")
+      .update(updates)
+      .eq("id", occasionId)
+      .eq("owner_id", user.id)
+      .select()
+      .single();
+
+    if (updateError || !updatedOccasion) {
+      return NextResponse.json(
+        { error: "Failed to update occasion" },
+        { status: 500 },
+      );
+    }
+
     // Fetch latest version
     const { data: latestVersions } = await supabase
       .from("plan_versions")
@@ -75,7 +121,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     const latestVersionNo = latestVersions && latestVersions[0] ? latestVersions[0].version_no : 0;
     const newVersionNo = latestVersionNo + 1;
 
-    // Snapshot before updating
+    // Snapshot state before updating (capturing prior state) ONLY after update succeeds
     const currentSnapshot = createSnapshot(occasion, items || [], vendors || []);
     const summary = eventAt !== undefined
       ? `Updated celebration date${eventAt ? ` to ${eventAt}` : " (cleared)"}.`
@@ -88,29 +134,6 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       change_summary: summary,
     });
 
-    // Apply updates
-    const updates: Database["public"]["Tables"]["occasions"]["Update"] = {};
-    if (eventAt !== undefined) updates.event_at = eventAt;
-    if (budgetTotal !== undefined) {
-      updates.budget_total = budgetTotal !== null ? budgetTotal.toFixed(2) : null;
-    }
-    if (guestCount !== undefined) updates.guest_count = guestCount;
-    if (title !== undefined) updates.title = title;
-
-    const { data: updatedOccasion, error: updateError } = await supabase
-      .from("occasions")
-      .update(updates)
-      .eq("id", occasionId)
-      .select()
-      .single();
-
-    if (updateError) {
-      return NextResponse.json(
-        { error: "Failed to update occasion" },
-        { status: 500 },
-      );
-    }
-
     return NextResponse.json({
       success: true,
       occasion: updatedOccasion,
@@ -122,4 +145,3 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
-

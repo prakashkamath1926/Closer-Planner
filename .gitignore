@@ -45,6 +45,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# ide
+.vscode/
+
 # scratch and screenshots
 scratch/
 *.png

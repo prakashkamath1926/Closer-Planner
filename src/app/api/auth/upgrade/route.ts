@@ -2,10 +2,18 @@ import { NextRequest, NextResponse, connection } from "next/server";
 import { signupSchema } from "@/lib/auth/validation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { checkRateLimit, createRateLimitResponse } from "@/lib/security/rate-limit";
+import { parseJsonBody, getClientIp } from "@/lib/security/request";
 
 export async function POST(req: NextRequest) {
   await connection();
   try {
+    const clientIp = getClientIp(req);
+    const rateLimit = await checkRateLimit(`upgrade-ip:${clientIp}`, 60, 10);
+    if (!rateLimit.allowed) {
+      return createRateLimitResponse(rateLimit.retryAfterSeconds ?? 60);
+    }
+
     const supabase = await createClient();
     const {
       data: { user },
@@ -19,8 +27,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json();
-    const parsed = signupSchema.safeParse(body);
+    const jsonResult = await parseJsonBody(req);
+    if (!jsonResult.success) {
+      return jsonResult.response;
+    }
+
+    const parsed = signupSchema.safeParse(jsonResult.data);
     if (!parsed.success) {
       return NextResponse.json(
         { error: parsed.error.issues[0]?.message || "Invalid input" },
@@ -48,11 +60,10 @@ export async function POST(req: NextRequest) {
     if (updateError) {
       console.error("Upgrade error:", updateError);
       const isEmailConflict =
-        updateError.message?.toLowerCase().includes("already registered") ||
-        updateError.message?.toLowerCase().includes("already exists") ||
-        updateError.message?.toLowerCase().includes("updating user") ||
         updateError.status === 422 ||
-        updateError.status === 500;
+        updateError.code === "email_exists" ||
+        updateError.message?.toLowerCase().includes("already registered") ||
+        updateError.message?.toLowerCase().includes("already exists");
 
       if (isEmailConflict) {
         return NextResponse.json(
@@ -65,8 +76,8 @@ export async function POST(req: NextRequest) {
       }
 
       return NextResponse.json(
-        { error: updateError.message || "Failed to upgrade account." },
-        { status: 400 },
+        { error: "Failed to upgrade account. Please try again." },
+        { status: 500 },
       );
     }
 
@@ -88,4 +99,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
-

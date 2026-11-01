@@ -2,6 +2,7 @@ import { NextRequest, NextResponse, connection } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { generateRawShareToken, hashShareToken } from "@/lib/engine/shield";
+import { parseJsonBody } from "@/lib/security/request";
 
 const createContributeLinkSchema = z.object({
   occasionId: z.string().uuid(),
@@ -31,8 +32,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
 
-    const body = await req.json();
-    const parsed = createContributeLinkSchema.safeParse(body);
+    const jsonResult = await parseJsonBody(req);
+    if (!jsonResult.success) {
+      return jsonResult.response;
+    }
+
+    const parsed = createContributeLinkSchema.safeParse(jsonResult.data);
     if (!parsed.success) {
       return NextResponse.json(
         { error: "Invalid parameters", details: parsed.error.format() },
@@ -227,8 +232,12 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
 
-    const body = await req.json();
-    const parsed = revokeContributeLinkSchema.safeParse(body);
+    const jsonResult = await parseJsonBody(req);
+    if (!jsonResult.success) {
+      return jsonResult.response;
+    }
+
+    const parsed = revokeContributeLinkSchema.safeParse(jsonResult.data);
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid parameters" }, { status: 400 });
     }

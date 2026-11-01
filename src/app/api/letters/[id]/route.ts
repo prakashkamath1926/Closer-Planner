@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { parseJsonBody } from "@/lib/security/request";
 import type { Json } from "@/lib/supabase/database.types";
 
 interface RouteParams {
@@ -28,8 +29,12 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
 
-    const body = await req.json();
-    const parsed = updateLetterSchema.safeParse(body);
+    const jsonResult = await parseJsonBody(req);
+    if (!jsonResult.success) {
+      return jsonResult.response;
+    }
+
+    const parsed = updateLetterSchema.safeParse(jsonResult.data);
     if (!parsed.success) {
       return NextResponse.json(
         { error: "Invalid status update", details: parsed.error.format() },

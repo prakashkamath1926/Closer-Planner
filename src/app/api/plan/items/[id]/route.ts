@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { parseJsonBody } from "@/lib/security/request";
 import type { Database } from "@/lib/supabase/database.types";
 
 interface RouteParams {
@@ -35,8 +36,12 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
 
-    const body = await req.json();
-    const parseResult = updateItemSchema.safeParse(body);
+    const jsonResult = await parseJsonBody(req);
+    if (!jsonResult.success) {
+      return jsonResult.response;
+    }
+
+    const parseResult = updateItemSchema.safeParse(jsonResult.data);
 
     if (!parseResult.success) {
       return NextResponse.json(
@@ -59,8 +64,9 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       .single();
 
     if (updateError) {
+      console.error("Item update DB error:", updateError);
       return NextResponse.json(
-        { error: "Failed to update item", details: updateError.message },
+        { error: "Failed to update item" },
         { status: 500 },
       );
     }

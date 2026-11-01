@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { Database, Json } from "@/lib/supabase/database.types";
+import { parseJsonBody } from "@/lib/security/request";
 import {
   VendorRecord,
   VendorStatus,
@@ -89,8 +90,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
 
-    const body = await req.json();
-    const parsed = createVendorSchema.safeParse(body);
+    const jsonResult = await parseJsonBody(req);
+    if (!jsonResult.success) {
+      return jsonResult.response;
+    }
+
+    const parsed = createVendorSchema.safeParse(jsonResult.data);
     if (!parsed.success) {
       return NextResponse.json(
         { error: "Invalid vendor data", details: parsed.error.format() },
@@ -159,8 +164,12 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
 
-    const body = await req.json();
-    const parsed = updateVendorSchema.safeParse(body);
+    const jsonResult = await parseJsonBody(req);
+    if (!jsonResult.success) {
+      return jsonResult.response;
+    }
+
+    const parsed = updateVendorSchema.safeParse(jsonResult.data);
     if (!parsed.success) {
       return NextResponse.json(
         { error: "Invalid vendor update data", details: parsed.error.format() },

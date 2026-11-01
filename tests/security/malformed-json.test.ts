@@ -20,6 +20,8 @@ vi.mock("@/lib/security/rate-limit", () => ({
 import { POST as intakeRoute } from "@/app/api/intake/route";
 import { POST as changesApplyRoute } from "@/app/api/changes/apply/route";
 import { POST as vendorQuoteRoute } from "@/app/api/vendors/quote/route";
+import { PATCH as planItemPatchRoute } from "@/app/api/plan/items/[id]/route";
+import { PUT as recipientViewPutRoute } from "@/app/api/recipient-view/route";
 
 describe("Malformed JSON Request Handling (returns HTTP 400, never 500)", () => {
   const malformedJsonString = '{"unclosed_json": "missing_bracket"';
@@ -58,6 +60,34 @@ describe("Malformed JSON Request Handling (returns HTTP 400, never 500)", () => 
     });
 
     const res = await vendorQuoteRoute(req);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/json/i);
+  });
+
+  it("PATCH /api/plan/items/[id] returns HTTP 400 on malformed JSON body", async () => {
+    const req = new NextRequest("http://localhost:3000/api/plan/items/item-123", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: malformedJsonString,
+    });
+
+    const res = await planItemPatchRoute(req, {
+      params: Promise.resolve({ id: "item-123" }),
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/json/i);
+  });
+
+  it("PUT /api/recipient-view returns HTTP 400 on malformed JSON body", async () => {
+    const req = new NextRequest("http://localhost:3000/api/recipient-view", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: malformedJsonString,
+    });
+
+    const res = await recipientViewPutRoute(req);
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toMatch(/json/i);

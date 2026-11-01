@@ -3,6 +3,9 @@ import { z } from "zod";
 import { generateText } from "ai";
 import { createGroq } from "@ai-sdk/groq";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit, createRateLimitResponse } from "@/lib/security/rate-limit";
+import { parseJsonBody } from "@/lib/security/request";
 
 const testKeySchema = z.object({
   provider: z.enum(["groq", "google"]),
@@ -13,8 +16,27 @@ const testKeySchema = z.object({
 export async function POST(req: NextRequest) {
   await connection();
   try {
-    const body = await req.json();
-    const parsed = testKeySchema.safeParse(body);
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
+
+    const rateLimit = await checkRateLimit(`ai-test-key:${user.id}`, 60, 10);
+    if (!rateLimit.allowed) {
+      return createRateLimitResponse(rateLimit.retryAfterSeconds ?? 60);
+    }
+
+    const jsonResult = await parseJsonBody(req);
+    if (!jsonResult.success) {
+      return jsonResult.response;
+    }
+
+    const parsed = testKeySchema.safeParse(jsonResult.data);
     if (!parsed.success) {
       return NextResponse.json(
         { valid: false, error: "Invalid provider or empty API key." },
@@ -57,7 +79,7 @@ export async function POST(req: NextRequest) {
     const msg = (errObj?.message || "").toLowerCase();
     const status = errObj?.status || errObj?.statusCode;
 
-    // Redacted sanitized error: NEVER includes the user's API key
+    // Redacted sanitized error: NEVER includes the user's API key or raw provider payload
     if (status === 401 || msg.includes("401") || msg.includes("unauthorized") || msg.includes("invalid api key")) {
       return NextResponse.json(
         { valid: false, error: "Invalid API key. Please check your credentials and try again." },

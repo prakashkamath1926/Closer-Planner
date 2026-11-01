@@ -40,7 +40,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(
           {
             error: "Authentication required and failed to create anonymous session",
-            details: anonError?.message,
           },
           { status: 401 },
         );
@@ -96,7 +95,7 @@ export async function POST(req: NextRequest) {
     if (occError || !occasion) {
       console.error("Failed to insert occasion:", occError);
       return NextResponse.json(
-        { error: "Failed to create occasion", details: occError?.message },
+        { error: "Failed to create occasion" },
         { status: 500 },
       );
     }
