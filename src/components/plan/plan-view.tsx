@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useMemo, useRef, useEffect, useSyncExternalStore } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   History,
@@ -93,6 +93,8 @@ const PLANNER_TABS: Array<{
   { id: "invitation", label: "Invitation", icon: Mail },
 ];
 
+const emptySubscribe = () => () => {};
+
 export function PlanView({
   initialOccasion,
   initialItems,
@@ -176,19 +178,24 @@ export function PlanView({
   }>({});
   const [isTradeoffModalOpen, setIsTradeoffModalOpen] = useState(false);
 
-  const [lastAppliedSummary, setLastAppliedSummary] = useState<string | null>(null);
-
-  useEffect(() => {
-    try {
-      const stored = sessionStorage.getItem("last_applied_summary");
-      if (stored) {
-        setLastAppliedSummary(stored);
-        sessionStorage.removeItem("last_applied_summary");
+  const [appliedSummaryOverride, setAppliedSummaryOverride] = useState<string | null>(null);
+  const storedSummary = useSyncExternalStore(
+    emptySubscribe,
+    () => {
+      try {
+        const stored = sessionStorage.getItem("last_applied_summary");
+        if (stored) {
+          sessionStorage.removeItem("last_applied_summary");
+          return stored;
+        }
+      } catch {
+        // Ignore storage exceptions
       }
-    } catch {
-      // Ignore storage exceptions
-    }
-  }, []);
+      return null;
+    },
+    () => null,
+  );
+  const lastAppliedSummary = appliedSummaryOverride ?? storedSummary;
 
   // Derived budget calculation
   const budgetSummary: BudgetSummary = useMemo(() => {
@@ -336,10 +343,7 @@ export function PlanView({
         body: JSON.stringify({
           occasionId: occasion.id,
           chosenOption: swapTradeoff,
-          idempotencyKey:
-            typeof crypto !== "undefined" && crypto.randomUUID
-              ? crypto.randomUUID()
-              : `swap-${Date.now()}`,
+          idempotencyKey: crypto.randomUUID(),
         }),
       });
 
@@ -916,7 +920,7 @@ export function PlanView({
           } catch {
             // Ignore storage exceptions
           }
-          setLastAppliedSummary(summary);
+          setAppliedSummaryOverride(summary);
           // Refresh window to load new database state
           window.location.reload();
         }}
