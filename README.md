@@ -1,81 +1,212 @@
-# Closer
+<div align="center">
 
-Plan something that brings you closer.  
-Live application: https://closer-planner.vercel.app/
+# <img src="https://img.shields.io/badge/-%E2%99%A5-FFF0F1?style=flat-square&color=C2476B" width="32" height="32" alt="Closer Logo" /> Closer
 
-## What Closer is
+**Plan something that brings you closer.**
 
-Most celebration planning software starts with tasks, spreadsheets, and line items. Closer starts with the person: who they are, what they love, and how you hope they will feel. Once the emotional direction is clear, Closer turns it into a concrete, executable plan with budgets, schedules, contingency alternatives, and vendor quotes. The human organizer remains in control of every financial and personal commitment, while AI handles the heavy lifting of discovery and adaptation.
+An AI-assisted, human-approved celebration companion that helps you make someone feel loved, understood, and special, and then handles the logistics.
+
+<p align="center">
+  <a href="https://closer-planner.vercel.app/">
+    <img src="https://img.shields.io/badge/Live_Demo-closer--planner.vercel.app-C2476B?style=for-the-badge" alt="Live Demo" />
+  </a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Next.js-16.4-black?logo=nextdotjs&logoColor=white" alt="Next.js" />
+  <img src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Tailwind-v4-06B6D4?logo=tailwindcss&logoColor=white" alt="Tailwind" />
+  <img src="https://img.shields.io/badge/Supabase-Postgres_+_Auth-3FCF8E?logo=supabase&logoColor=white" alt="Supabase" />
+  <img src="https://img.shields.io/badge/Vercel_AI_SDK-Groq_+_Gemini-black?logo=vercel&logoColor=white" alt="Vercel AI SDK" />
+</p>
+
+*Tell us about them → Get a personal plan → Approve every change → Surprise them*
+
+</div>
+
+---
+
+## 📌 Overview
+
+Most celebration planning software starts with tasks, spreadsheets, and line items. Closer starts with the person: who they are, what they love, and how you hope they will feel.
+
+Once that emotional direction is clear, Closer turns it into a concrete plan with a budget, a timeline, backup options, and vendor help. The AI drafts and suggests. Plain, tested code does the maths, and you approve every change.
 
 <!-- screenshots: add later -->
 
-## Features
+Closer currently supports:
+- 💡 **Three ways to start a plan**: guided discovery, concrete vision, or rapid tonight-flow
+- 💰 **Code-computed budget and timeline**: zero floating-point arithmetic errors, validated dependency graphs
+- 🔁 **Change proposals with undo**: AI proposes trade-offs; applying creates snapshots with instant rollback
+- 🤝 **Vendor suggestions & quote parsing**: extract structured quotes from raw WhatsApp or email text
+- 🎁 **Surprise Shield**: keep budgets, notes, and early ideas strictly confidential from the recipient
+- 💌 **Letters from loved ones**: collect messages from friends and family with an organizer moderation step
+- 🫶 **Our Blend**: compare co-planner perspectives to find agreement and plan better
+- 📅 **Countdown & .ics export**: live countdown, minute-by-minute run sheet, and calendar sync
+- 🎨 **Invitation mini-site**: customizable card exportable as PNG, HTML, or email draft
+- 🎙️ **Voice input**: speech recognition in English and Hindi
+- 🔑 **Bring Your Own Key (BYOK)**: use personal Groq or Gemini keys session-wide
 
-- **Three intake paths**: "I have an idea" (maps tasks, costs, and timings for an existing concept), "Help me discover" (3–5 gentle questions exploring personality and feeling), and "I need it now" (fast track defaulting to tonight/this weekend).
-- **Computed plan & budget**: Automated budget allocation with over-budget alerts, task checklists with intent tags, and one-click Plan B fallback swapping.
-- **Change engine & undo**: When constraints shift (dates, budget, guest count), the AI proposes 2–3 structured trade-offs that preserve emotional intent; applying creates a snapshot for one-click version rollback.
-- **Vendor management & quote parsing**: 5-stage status workflow (Suggested to Confirmed), unstructured quote parser with prompt-injection defense, side-by-side quote comparison, and pre-drafted WhatsApp/email inquiries.
-- **Surprise Shield**: Recipient teaser portal with confidential budgeting and encrypted share links.
-- **Letters from loved ones**: Shareable contribution link for friends and family, with an organizer review step before anything is revealed.
-- **Our Blend**: Dual-perspective quiz comparing how the organizer and a confidant understand the recipient's tastes, producing an alignment score.
-- **Timeline & calendar**: Real-time countdown ticker, minute-by-minute execution run sheet, browser notification alerts, and RFC 5545 `.ics` export.
-- **Invitation mini-site**: Customizable invitation cards with botanical motifs, AI copy helper, and export to PNG, clean standalone HTML, or email draft.
-- **Voice input**: Hands-free speech recognition in English and Hindi with live audio feedback.
-- **BYOK (Bring Your Own Key)**: Support for personal Google Gemini or Groq API keys directly from the browser.
+---
 
-## How it works: AI proposes, code decides
+## 💡 Why Closer?
 
-Closer maintains a strict boundary between probabilistic generation and deterministic logic:
+| Typical Planning Tools | Closer |
+|---|---|
+| Start with tasks and line items | Starts with the person and how you want them to feel |
+| Budget arithmetic is loose or left to a chat model | Money is computed by code in integer minor units |
+| Changes quietly overwrite the plan | Changes are proposed, approved, versioned, and undoable |
+| Surprises can be spoiled by a shared link | Surprise Shield is enforced on the server |
+| AI failures leave you with nothing | A clearly labelled template fallback keeps working |
+| Prices look more certain than they are | Costs are only ever an estimate or a quote, never "confirmed" by AI |
 
-- **Deterministic engine (`src/lib/engine`)**: All financial arithmetic is executed strictly in integer minor units (paise/cents) to prevent floating-point drift. Timeline validation enforces cycle-free Directed Acyclic Graphs (DAGs) so prerequisites always precede dependent tasks.
-- **AI provider chain (`AI_MODEL_CHAIN`)**: The server routes requests across an ordered failover chain (e.g. Groq open-weight models followed by Google Gemini). Transient rate limits or server errors trigger automatic backoff and rollover; if the chain is exhausted, a labeled template fallback activates (`source: "fallback"`).
-- **Zod-validated structured outputs**: 100% of LLM outputs are validated against strict Zod schemas using `Output.object`. Invalid outputs are rejected and retried once before falling back.
+---
 
-## Surprise Shield
+## ⚠️ Honest by Design
 
-The Surprise Shield guarantees the recipient never accidentally encounters budgets, vendor notes, or unfinished ideas:
+Closer is a hackathon project and a planning aid, not a booking service.
+- **AI suggestions are proposals**: You review and approve every decision.
+- **Costs are estimates or quotes**: The AI cannot mark a price as confirmed.
+- **Explicit fallbacks**: When the AI is unavailable, Closer says so and uses a labelled template (`source: "fallback"`).
+- **Zero key leakage**: A request using your own API key never silently falls back to the server's key.
+- **Known limitations** are listed openly below.
 
-- **Cryptographic tokens**: Share tokens are 32 random bytes stored in the database strictly as SHA-256 hashes (`token_hash`). Raw tokens are never persisted.
-- **Server-enforced reveal gating**: Before `reveal_at`, the server returns a neutral cover state ("Something special is being prepared") with null messages and empty letters.
-- **Generic 404s**: Expired, revoked, unpublished, or invalid tokens all return identical generic 404 responses (`{ "error": "Not found" }`) to prevent enumeration or state leaking.
-- **Privacy headers**: All recipient endpoints explicitly send `Cache-Control: no-store` and `Referrer-Policy: no-referrer`.
+---
 
-## Security
+## ✨ Key Features
 
-- **Row Level Security (RLS)**: Enforced across all 11 application tables in Supabase Postgres. Users can only access their own occasions, items, and versions.
-- **Security headers & CSP**: Strict Content Security Policy (`frame-ancestors 'none'`, `object-src 'none'`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Strict-Transport-Security`).
-- **Rate limiting**: PostgreSQL-backed rate limiter via `rate_limit_hit()` with an in-memory fallback per server instance (10 requests / 60 seconds for AI endpoints).
-- **BYOK privacy**: User-provided API keys are held strictly in browser `sessionStorage`, cleared upon closing the tab, sent via custom request headers, and never persisted to databases or server logs.
-- **Server-only secrets**: Service role keys and default AI provider tokens are guarded with `server-only` imports and never reach client bundles.
+- 💡 **Three Ways to Start**: "I have an idea", "Help me discover" (gentle questions about the person), and "I need it now" (fast path for tonight or this week).
+- 💰 **Plan, Budget, and Timeline**: Budget totals and over-budget warnings are calculated by code, not AI. The timeline is validated as a Directed Acyclic Graph so tasks never loop.
+- 🔁 **Change Engine with Undo**: When date, budget, or guest count changes, AI proposes trade-offs that preserve emotional intent. Every apply creates a snapshot for one-click rollback.
+- 🤝 **Vendors and Quote Parsing**: Vendor suggestions, a parser for pasted vendor emails or WhatsApp messages (with prompt-injection defences), and pre-drafted inquiries.
+- 🎁 **Surprise Shield**: A recipient link that reveals nothing before the reveal time.
+- 💌 **Letters from Loved Ones**: A contribution link for friends and family, with an organizer review gate.
+- 🫶 **Our Blend**: A short quiz comparing how the organizer and a friend understand the recipient's tastes.
+- 📅 **Calendar and Countdown**: Live countdown, run sheet, optional browser reminders, and RFC 5545 `.ics` export.
+- 🎨 **Invitation**: A customizable invitation card, exportable as PNG or clean HTML, plus an email draft.
+- 🎙️ **Voice Input**: Speech input on the intake form, with an English and Hindi toggle.
+- 🔑 **Bring Your Own Key (BYOK)**: Use your own Groq or Gemini key for the browser session.
 
-## Tech stack
+---
 
-- **Framework**: Next.js 16.4.3 (App Router, Turbopack, React 19.3.0, TypeScript 5)
-- **Styling**: Tailwind CSS v4, Lucide React (1.63.0), tw-animate-css (1.4.0)
-- **Database & Auth**: Supabase (@supabase/ssr 0.12.7, @supabase/supabase-js 2.118.0)
-- **AI & Validation**: Vercel AI SDK (ai 7.0.155, @ai-sdk/groq 4.0.72, @ai-sdk/google 4.0.107, @ai-sdk/openai-compatible 3.0.82), Zod 4.6.7
-- **Animation & Export**: Framer Motion 14.7.1, html-to-image 1.11.13, DOMPurify 3.4.17
-- **Testing**: Vitest 5.0.5 with PGlite 0.5.12, Playwright 1.64.1 with axe-core 4.14.0
+## 🧠 How Closer Works
 
-## Getting started
+```mermaid
+flowchart TD
+    User([Organizer or Recipient]) <--> Browser[Next.js App Router]
+    
+    subgraph Server [Next.js Server & APIs]
+        Browser --> Router[AI Router & Model Chain]
+        Router --> Groq[Groq: GPT-OSS]
+        Router --> Gemini[Google: Gemini Flash]
+        Router --> Fallback[Labelled Template Fallback]
+        
+        Browser <--> Engine[Deterministic Engine: Money, Timeline, Shield, .ics]
+    end
+    
+    subgraph Storage [Supabase Cloud]
+        Engine <--> DB[(PostgreSQL + RLS)]
+        Browser <--> Auth[Supabase Auth]
+    end
+```
 
-### Prerequisites
-- Node.js 22.x or newer
+### 🔍 AI Proposes, Code Decides
+
+1. **Intake**: You pick one of three paths and describe the person and the occasion.
+2. **AI Draft**: The server calls an ordered chain of models (`AI_MODEL_CHAIN`). Rate limits, server errors, and timeouts trigger backoff and rollover. Failing models enter a 60-second cooldown.
+3. **Validation**: Responses are parsed against strict Zod schemas. Invalid output is retried once, then replaced by the labelled template fallback.
+4. **Code Takes Over**: `src/lib/engine` holds the plain, tested logic. Money is handled in integer minor units (no floating-point drift). Budget, timeline DAGs, version history, Shield rules, and `.ics` export all live there.
+5. **You Approve**: Changes are proposed, shown to you, and applied only after approval. Each apply creates a version snapshot you can restore.
+6. **Share & Run**: Share through the Shield, collect letters, send invitations, then follow the countdown and minute-by-minute run sheet.
+
+---
+
+## 🎁 Surprise Shield
+
+- **Cryptographic tokens**: Share tokens are 32 random bytes. Only a SHA-256 hash is stored, so a database leak cannot reveal a working link.
+- **Server-enforced**: Before `reveal_at`, the server returns a neutral cover state with no message and no letters.
+- **Identical 404s**: Expired, revoked, unpublished, and unknown tokens all return the same generic 404 response.
+- **Privacy headers**: Recipient endpoints send `Cache-Control: no-store` and `Referrer-Policy: no-referrer`.
+
+---
+
+## 🔐 Security
+
+- **Row Level Security**: Enabled across all tables in `schema.sql`. Users can only access their own records.
+- **Headers**: Strict Content Security Policy, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, and HSTS.
+- **Rate limiting**: PostgreSQL-backed `rate_limit_hit()` with an in-memory fallback (10 requests / 60 seconds on AI endpoints).
+- **BYOK**: Keys live in browser `sessionStorage` for the tab session, are sent per request in custom headers, and are never stored or logged server-side.
+- **Server-only secrets**: Supabase service-role client and AI keys import `server-only`.
+
+---
+
+## 🛠️ Tech Stack
+
+| Component | Technology | Purpose |
+|---|---|---|
+| **Framework** | Next.js 16.4.3 (App Router), React 19.3.0 | Pages and API routes |
+| **Language** | TypeScript 5 | Type safety |
+| **Styling** | Tailwind CSS v4, Framer Motion 14.7.1 | Blush & Botanical UI and motion |
+| **Database & Auth** | Supabase (`@supabase/ssr` 0.12.7, `@supabase/supabase-js` 2.118.0) | Postgres, RLS, anonymous & Google sign-in |
+| **AI** | Vercel AI SDK `ai` 7.0.155 (Groq, Google Gemini) | Model chain, structured output, and failover |
+| **Validation** | Zod 4.6.7, DOMPurify 3.4.17 | Output validation and sanitization |
+| **Export** | html-to-image 1.11.13 | Invitation PNG export |
+| **Testing** | Vitest 5.0.5 (PGlite 0.5.12), Playwright 1.64.1 (axe-core 4.14.0) | Unit, database, end-to-end, and a11y tests |
+| **Hosting** | Vercel and Supabase | Production cloud deployment |
+
+---
+
+## 📂 Project Structure
+
+```
+Closer/
+├── src/
+│   ├── app/                 # App Router pages and API routes
+│   │   ├── plan/[id]/       # Plan dashboard
+│   │   ├── r/[token]/       # Surprise Shield recipient view
+│   │   └── contribute/      # Letters from loved ones
+│   ├── components/          # UI components
+│   ├── fonts/               # Self-hosted fonts (SIL Open Font License)
+│   ├── lib/
+│   │   ├── ai/              # Orchestrator, router, prompts, schemas, BYOK client
+│   │   ├── engine/          # Deterministic logic (money, budget, timeline, shield, ics)
+│   │   ├── security/        # Rate limiting, sanitization
+│   │   └── supabase/        # Browser, server, and admin clients
+│   └── proxy.ts             # Session refresh and route protection
+├── tests/                   # Vitest, security, and Playwright tests
+├── schema.sql               # Tables, constraints, RLS, rate limiting
+├── .env.example
+└── README.md
+```
+
+---
+
+## ⚙️ Requirements
+
+- Node.js 20.9 or newer (tested on 22.x)
 - npm 10.x or newer
 - A Supabase project
+- A Groq and/or Google AI Studio API key for AI features
 
-### Setup
+---
+
+## 🚀 Installation
+
 ```bash
-# 1. Clone and install
+# 1. Clone the repository
 git clone https://github.com/prakashkamath1926/Closer-Planner.git
 cd Closer-Planner
+
+# 2. Install dependencies
 npm install
 
-# 2. Configure environment
+# 3. Configure the environment
 cp .env.example .env.local
 ```
 
-Populate the variable names in `.env.local` (from `.env.example`):
+*On Windows PowerShell, use `Copy-Item .env.example .env.local` instead. Fill in values; never commit `.env.local`.*
+
+**Environment variables:**
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
@@ -83,89 +214,85 @@ Populate the variable names in `.env.local` (from `.env.example`):
 - `GROQ_API_KEY`
 - `GOOGLE_GENERATIVE_AI_API_KEY`
 - `APP_BASE_URL`
-- Optional: `COMPAT_BASE_URL`, `COMPAT_API_KEY`, `COMPAT_LABEL`, `SUPABASE_PROJECT_REF`
+- *Optional:* `COMPAT_BASE_URL`, `COMPAT_API_KEY`, `COMPAT_LABEL`, `SUPABASE_PROJECT_REF`
 
 ```bash
-# 3. Apply database schema
-# Run schema.sql in your Supabase project's SQL Editor
+# 4. Set up the database
+# Execute schema.sql in your Supabase project's SQL editor
 
-# 4. Start development server
-npm run dev
-
-# 5. Run verification suite
-npm test                 # Vitest unit & schema tests on embedded PGlite
-npm run test:e2e         # Playwright end-to-end tests
-npm run build            # Production Next.js build
+# 5. Run the development server
+npm run dev # http://localhost:3000
 ```
 
-## AI configuration
-
-Closer uses an ordered model chain configured via `AI_MODEL_CHAIN` in `.env.local`:
-```env
-AI_MODEL_CHAIN=groq:openai/gpt-oss-20b,groq:openai/gpt-oss-120b,google:gemini-3.1-flash-lite
-GROQ_API_KEY=your_groq_api_key
-GOOGLE_GENERATIVE_AI_API_KEY=your_google_ai_key
+**Verification commands:**
+```bash
+npm run typecheck       # TypeScript verification
+npm run lint            # ESLint check
+npm test                # Vitest unit & schema tests on PGlite
+npm run test:e2e        # Playwright end-to-end tests
+npm run build           # Production Next.js build
 ```
 
-- **Groq**: Fast inference via `@ai-sdk/groq` using models such as `openai/gpt-oss-20b` or `openai/gpt-oss-120b`.
-- **Google Generative AI**: Semantic reasoning via `@ai-sdk/google` using models like `gemini-3.1-flash-lite`.
-- **Optional OpenAI-compatible**: Custom endpoints via `COMPAT_BASE_URL` (HTTPS only), `COMPAT_API_KEY`, and `COMPAT_LABEL`.
+---
 
-The system tries entries sequentially, automatically applying a 60-second circuit-breaker cooldown upon fatal errors before falling back to local templates.
+## ☁️ Deployment
 
-## Deploying
+Closer runs on Vercel with a Supabase backend.
 
-Deployed on Vercel with a Supabase PostgreSQL backend.
-
-### Supabase dashboard configuration
-1. **Anonymous sign-ins**: Enable in **Authentication > Sign In / Up**.
+1. **Anonymous sign-ins**: Enable in **Authentication > Sign In / Up**. Allows immediate planning without signup.
 2. **Email provider**: Enable in **Authentication > Providers > Email**.
-3. **Google OAuth**: Enable in **Authentication > Providers > Google**.
+3. **Google sign-in**: Enable the Google provider.
    - In Google Cloud Console, set the Authorized Redirect URI to Supabase's callback: `https://<project-ref>.supabase.co/auth/v1/callback`.
-   - In Supabase **Authentication > URL Configuration > Redirect URLs**, add your application's callback URL: `${origin}/auth/callback`.
-4. **Site URL**: In Supabase URL Configuration, set your live production domain (e.g. `https://closer-planner.vercel.app`).
-5. **Database schema**: Execute `schema.sql` in the Supabase SQL Editor.
+   - In Supabase (**Authentication > URL Configuration > Redirect URLs**), add `${origin}/auth/callback`.
+4. **Site URL**: Set your production domain in Supabase URL Configuration (e.g. `https://closer-planner.vercel.app`).
+5. **Database**: Run `schema.sql` in the Supabase SQL editor.
+6. **Environment variables**: Add the environment variables in Vercel Project Settings.
 
-## Project structure
+---
 
-```
-src/
-├── app/                    # Next.js App Router (pages & API routes)
-│   ├── api/                # AI, plan, auth, vendor, blend, and recipient APIs
-│   ├── plan/[id]/          # Master celebration dashboard (plan, vendors, timeline, etc.)
-│   ├── r/[token]/          # Surprise Shield recipient view
-│   └── contribute/[token]/ # Letters from loved ones contributor portal
-├── components/             # React UI components (intake, budget, timeline, vendors, modals)
-├── lib/
-│   ├── ai/                 # Orchestrator, prompts, Zod schemas, router, BYOK client
-│   ├── engine/             # Deterministic logic (money, budget, timeline, run-sheet, shield)
-│   ├── security/           # Rate limiting and request sanitization
-│   └── supabase/           # SSR browser, server, and service-role admin clients
-└── proxy.ts                # Next.js session refresh proxy
-```
+## ⚠️ Known Limitations
 
-## Known limitations
+- **Multi-step change apply**: Applying a change makes sequential database writes rather than one atomic transaction.
+- **Client-bound reminders**: Reminders only fire while the browser tab remains open.
+- **CSP unsafe-inline**: The CSP permits `'unsafe-inline'` for script and style tags to accommodate runtime hydration.
+- **Rate limiting scope**: The in-memory rate limiter and model cooldown are per server instance.
+- **Integration test gating**: Live Supabase RLS tests only run with `SUPABASE_INTEGRATION_TEST=true`; standard CI uses embedded PGlite.
+- **Pre-confirmed signups**: Accounts are created pre-confirmed without an outbound email verification roundtrip.
 
-- **Multi-step change apply**: Applying a trade-off performs sequential database mutations rather than wrapping all item updates in a single atomic database transaction.
-- **Client-bound reminders**: Browser task notifications and chimes only fire while the application tab remains open in an active browser session.
-- **CSP unsafe-inline**: Content Security Policy permits `'unsafe-inline'` for script and style tags to accommodate runtime hydration and animation styles.
-- **Rate limiting scope**: In-memory rate limiting fallback operates per serverless runtime instance rather than across a globally coordinated distributed cache.
-- **Integration test gating**: Live Supabase RLS integration tests require `SUPABASE_INTEGRATION_TEST=true` and live database credentials; standard CI runs on embedded PGlite.
-- **Pre-confirmed signups**: Account creation endpoints auto-confirm user emails via administrative auth rather than requiring outbound verification emails.
+*See [`AUDIT-SECURITY.md`](AUDIT-SECURITY.md) for the detailed security audit.*
 
-## Built with AI
+---
 
-Detailed prompt history and architectural evolutions are tracked in [`PROMPT_LOG.md`](PROMPT_LOG.md). Generative AI was used as a rapid scaffolding and drafting partner for Zod schemas, React components, and prompt engineering. The human developer established all core constraints, directed the "Honest by Design" philosophy, authored the deterministic financial and DAG engines, and verified every database policy and security boundary.
+## 🤖 Built with AI
 
-## Docs index
+Generative AI helped draft initial schemas, tests, and component scaffolding. The human developer established all core constraints, directed the *Honest by Design* philosophy, authored the deterministic financial and DAG engines, and verified every database policy and security boundary. Full prompts and design evolutions are documented in [`PROMPT_LOG.md`](PROMPT_LOG.md).
 
-- [`prd.md`](prd.md) — Product requirements and user journeys
-- [`architecture.md`](architecture.md) — System boundaries and state management
-- [`design.md`](design.md) — Blush & Botanical design tokens and typography
-- [`rules.md`](rules.md) — Development constraints and invariant rules
-- [`DEPLOY.md`](DEPLOY.md) — Deployment checklist and environment reference
-- [`PROMPT_LOG.md`](PROMPT_LOG.md) — Prompts, decisions, and evolution log
+---
 
-## Challenge
+## 📚 Docs Index
 
-Built with care for PromptWars Virtual Challenge 5 (Celebration & Event Planner).
+- [`prd.md`](prd.md) — Product requirements
+- [`architecture.md`](architecture.md) — System design and boundaries
+- [`design.md`](design.md) — Blush & Botanical design tokens
+- [`rules.md`](rules.md) — Project development invariants
+- [`DEPLOY.md`](DEPLOY.md) — Deployment checklist
+- [`PROMPT_LOG.md`](PROMPT_LOG.md) — Prompt history and evolution
+
+---
+
+## 🏆 Built For
+
+**PromptWars Virtual Challenge 5: Celebration & Event Planner**
+
+### 👨‍💻 Author
+**Prakash Kamath** — Design, development, AI architecture, and engineering.
+
+---
+
+<div align="center">
+
+<img src="https://img.shields.io/badge/-%E2%99%A5-FFF0F1?style=flat-square&color=C2476B" width="20" height="20" alt="Closer Heart" /> **Closer**  
+*Because making someone feel special matters.*  
+Built with Next.js 16, Supabase, Vercel AI SDK, Groq, and Gemini.
+
+</div>
