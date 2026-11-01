@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { prepareRestore, PlanSnapshotData } from "@/lib/engine/versions";
+import { prepareRestore, isValidSnapshot, PlanSnapshotData } from "@/lib/engine/versions";
 import { parseJsonBody } from "@/lib/security/request";
 import type { Json } from "@/lib/supabase/database.types";
 
@@ -63,22 +63,53 @@ export async function POST(req: NextRequest) {
 
     const targetSnapshot = targetVersionRow.snapshot as unknown as PlanSnapshotData;
 
+    // Validate snapshot structure before executing any modifications
+    if (!isValidSnapshot(targetSnapshot)) {
+      return NextResponse.json(
+        { error: `Version ${targetVersionNo} contains a malformed or corrupted snapshot` },
+        { status: 400 },
+      );
+    }
+
     // 2. Fetch current live state
-    const { data: currentOccasion } = await supabase
+    const { data: currentOccasion, error: currentOccasionError } = await supabase
       .from("occasions")
       .select("*")
       .eq("id", occasionId)
       .single();
 
-    const { data: currentItems } = await supabase
+    if (currentOccasionError || !currentOccasion) {
+      return NextResponse.json(
+        { error: "Occasion not found or inaccessible" },
+        { status: 404 },
+      );
+    }
+
+    const { data: currentItems, error: currentItemsError } = await supabase
       .from("plan_items")
       .select("*")
       .eq("occasion_id", occasionId);
 
-    const { data: currentVendors } = await supabase
+    if (currentItemsError) {
+      console.error("Failed to fetch current plan items before restore:", currentItemsError);
+      return NextResponse.json(
+        { error: "Failed to load current items before restore" },
+        { status: 500 },
+      );
+    }
+
+    const { data: currentVendors, error: currentVendorsError } = await supabase
       .from("vendors")
       .select("*")
       .eq("occasion_id", occasionId);
+
+    if (currentVendorsError) {
+      console.error("Failed to fetch current vendors before restore:", currentVendorsError);
+      return NextResponse.json(
+        { error: "Failed to load current vendors before restore" },
+        { status: 500 },
+      );
+    }
 
     // 3. Fetch latest version number
     const { data: latestVersions } = await supabase
@@ -93,7 +124,7 @@ export async function POST(req: NextRequest) {
     // 4. Prepare restore: captures current state as a new version snapshot
     const restoreResult = prepareRestore(
       {
-        occasion: currentOccasion || { id: occasionId, title: "Occasion" },
+        occasion: currentOccasion,
         plan_items: currentItems || [],
         vendors: currentVendors || [],
       },
@@ -113,14 +144,14 @@ export async function POST(req: NextRequest) {
     if (saveReplacedError) {
       console.error("Failed to save replaced state as new version:", saveReplacedError);
       return NextResponse.json(
-        { error: "Failed to create version snapshot for replaced state" },
+        { error: "Failed to create version snapshot for replaced state", stage: "snapshot_save" },
         { status: 500 },
       );
     }
 
     // 6. Restore occasion fields to match target snapshot
     const restoredOcc = restoreResult.stateToRestore.occasion;
-    await supabase
+    const { error: updateOccasionError } = await supabase
       .from("occasions")
       .update({
         title: restoredOcc.title,
@@ -131,9 +162,24 @@ export async function POST(req: NextRequest) {
       })
       .eq("id", occasionId);
 
+    if (updateOccasionError) {
+      console.error("Failed to restore occasion fields:", updateOccasionError);
+      return NextResponse.json(
+        { error: "Failed to restore occasion details", stage: "occasion_restore" },
+        { status: 500 },
+      );
+    }
+
     // 7. Replace live plan_items with restored snapshot items
     // First, delete current live items for this occasion
-    await supabase.from("plan_items").delete().eq("occasion_id", occasionId);
+    const { error: deleteError } = await supabase.from("plan_items").delete().eq("occasion_id", occasionId);
+    if (deleteError) {
+      console.error("Failed to delete current items during restore:", deleteError);
+      return NextResponse.json(
+        { error: "Failed to clear current items while restoring version", stage: "items_clear" },
+        { status: 500 },
+      );
+    }
 
     // Re-insert exact snapshot items
     if (restoreResult.stateToRestore.plan_items.length > 0) {
@@ -160,6 +206,10 @@ export async function POST(req: NextRequest) {
 
       if (insertRestoredError) {
         console.error("Failed to insert restored items:", insertRestoredError);
+        return NextResponse.json(
+          { error: "Failed to insert restored plan items", stage: "items_insert" },
+          { status: 500 },
+        );
       }
     }
 

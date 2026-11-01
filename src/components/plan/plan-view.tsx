@@ -293,20 +293,33 @@ export function PlanView({
   }, [items]);
 
   const handleStatusChange = async (itemId: string, newStatus: "todo" | "doing" | "done" | "skipped") => {
+    const currentItem = items.find((i) => i.id === itemId);
+    const previousStatus = currentItem?.status;
+    if (!previousStatus || previousStatus === newStatus) return;
+
     // Optimistic update
     setItems((prev) =>
       prev.map((i) => (i.id === itemId ? { ...i, status: newStatus } : i)),
     );
 
     try {
-      await fetch(`/api/plan/items/${itemId}`, {
+      const res = await fetch(`/api/plan/items/${itemId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
+
+      if (!res.ok) {
+        // HTTP error (400, 401, 500, etc.): roll back only this item to preserve other state updates
+        setItems((prev) =>
+          prev.map((i) => (i.id === itemId ? { ...i, status: previousStatus } : i)),
+        );
+      }
     } catch {
-      // Revert on failure
-      setItems(items);
+      // Network failure: roll back only this item
+      setItems((prev) =>
+        prev.map((i) => (i.id === itemId ? { ...i, status: previousStatus } : i)),
+      );
     }
   };
 

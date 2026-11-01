@@ -92,5 +92,70 @@ describe("engine/versions: snapshotting & deterministic version restore", () => 
       prepareRestore(currentState, { invalid: true } as unknown as PlanSnapshotData, 1);
     }).toThrow("Invalid target snapshot structure");
   });
+
+  describe("isValidSnapshot comprehensive validation", () => {
+    it("accepts valid snapshots with required and optional fields", () => {
+      const valid = createSnapshot(
+        { id: "occ-123", title: "Anniversary Dinner", budget_total: "10000.00", event_at: "2026-12-25" },
+        [
+          { id: "item-1", occasion_id: "occ-123", title: "Book table", status: "todo", depends_on: [] },
+          { id: "item-2", occasion_id: "occ-123", title: "Flowers", status: "done", depends_on: ["item-1"] },
+        ],
+        [{ id: "v-1", occasion_id: "occ-123", name: "Floral Shop", category: "decor" }],
+      );
+      expect(isValidSnapshot(valid)).toBe(true);
+    });
+
+    it("rejects snapshots missing occasion id or title", () => {
+      expect(isValidSnapshot({ occasion: { id: "" }, plan_items: [], vendors: [] })).toBe(false);
+      expect(isValidSnapshot({ occasion: { id: "occ-1", title: "" }, plan_items: [], vendors: [] })).toBe(false);
+      expect(isValidSnapshot({ occasion: null, plan_items: [], vendors: [] })).toBe(false);
+      expect(isValidSnapshot({ plan_items: [], vendors: [] })).toBe(false);
+    });
+
+    it("rejects snapshots with malformed plan_items entries", () => {
+      expect(
+        isValidSnapshot({
+          occasion: { id: "occ-1", title: "Valid" },
+          plan_items: [{ id: "", title: "No ID" }],
+          vendors: [],
+        }),
+      ).toBe(false);
+
+      expect(
+        isValidSnapshot({
+          occasion: { id: "occ-1", title: "Valid" },
+          plan_items: [{ id: "item-1", title: 123 }], // non-string title
+          vendors: [],
+        }),
+      ).toBe(false);
+
+      expect(
+        isValidSnapshot({
+          occasion: { id: "occ-1", title: "Valid" },
+          plan_items: [{ id: "item-1", title: "Title", depends_on: "not-an-array" }],
+          vendors: [],
+        }),
+      ).toBe(false);
+    });
+
+    it("rejects snapshots with malformed vendor entries", () => {
+      expect(
+        isValidSnapshot({
+          occasion: { id: "occ-1", title: "Valid" },
+          plan_items: [],
+          vendors: [{ id: "", name: "No ID" }],
+        }),
+      ).toBe(false);
+
+      expect(
+        isValidSnapshot({
+          occasion: { id: "occ-1", title: "Valid" },
+          plan_items: [],
+          vendors: [{ id: "v-1", name: null }],
+        }),
+      ).toBe(false);
+    });
+  });
 });
 

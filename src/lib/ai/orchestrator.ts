@@ -24,13 +24,13 @@ export interface ChainCallOptions {
   customChain?: ChainEntry[];
 }
 
-function parseCallOptions(options?: LanguageModel | ChainCallOptions): {
+export function parseCallOptions(options?: LanguageModel | ChainCallOptions): {
   modelOverride?: LanguageModel;
   byok?: ByokConfig | null;
   customChain?: ChainEntry[];
 } {
   if (!options) return {};
-  if (typeof options === "object" && options !== null && "modelId" in options) {
+  if (typeof options === "object" && options !== null && ("specificationVersion" in options || "doGenerate" in options)) {
     return { modelOverride: options as LanguageModel };
   }
   const opts = options as ChainCallOptions;

@@ -79,14 +79,61 @@ export function createSnapshot(
  * Validates the structure of a snapshot.
  */
 export function isValidSnapshot(snapshot: unknown): snapshot is PlanSnapshotData {
-  if (!snapshot || typeof snapshot !== "object") return false;
+  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
+    return false;
+  }
   const s = snapshot as Record<string, unknown>;
-  return (
-    typeof s.occasion === "object" &&
-    s.occasion !== null &&
-    Array.isArray(s.plan_items) &&
-    Array.isArray(s.vendors)
-  );
+
+  // 1. Occasion validation: must be an object with valid non-empty id and title
+  if (!s.occasion || typeof s.occasion !== "object" || Array.isArray(s.occasion)) {
+    return false;
+  }
+  const occ = s.occasion as Record<string, unknown>;
+  if (typeof occ.id !== "string" || !occ.id.trim()) {
+    return false;
+  }
+  if (typeof occ.title !== "string" || !occ.title.trim()) {
+    return false;
+  }
+
+  // 2. Plan items validation: must be an array of valid item objects
+  if (!Array.isArray(s.plan_items)) {
+    return false;
+  }
+  for (const item of s.plan_items) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      return false;
+    }
+    const pi = item as Record<string, unknown>;
+    if (typeof pi.id !== "string" || !pi.id.trim()) {
+      return false;
+    }
+    if (typeof pi.title !== "string") {
+      return false;
+    }
+    if (pi.depends_on !== undefined && (!Array.isArray(pi.depends_on) || !pi.depends_on.every((d) => typeof d === "string"))) {
+      return false;
+    }
+  }
+
+  // 3. Vendors validation: must be an array of valid vendor objects
+  if (!Array.isArray(s.vendors)) {
+    return false;
+  }
+  for (const vendor of s.vendors) {
+    if (!vendor || typeof vendor !== "object" || Array.isArray(vendor)) {
+      return false;
+    }
+    const v = vendor as Record<string, unknown>;
+    if (typeof v.id !== "string" || !v.id.trim()) {
+      return false;
+    }
+    if (typeof v.name !== "string") {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 /**

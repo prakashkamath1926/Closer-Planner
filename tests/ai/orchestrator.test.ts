@@ -7,6 +7,7 @@ import {
   proposeIdeas,
   proposeTradeoffs,
   createDeterministicFallbackIdeas,
+  parseCallOptions,
 } from "../../src/lib/ai/orchestrator";
 import { IntakeRequest, aiProposeIdeasResponseSchema } from "../../src/lib/ai/schemas";
 import { PlanItem } from "../../src/lib/engine/changes";
@@ -681,6 +682,30 @@ describe("ai/orchestrator: mocked model structured output and resilience", () =>
     if (parsed.success) {
       expect(parsed.data.ideas.length).toBe(5);
     }
+  });
+
+  describe("parseCallOptions resolution and modelId mismatch prevention", () => {
+    it("safely distinguishes LanguageModel from ChainCallOptions with modelId", () => {
+      // 1. Raw LanguageModel instance
+      const rawModel = new MockLanguageModelV4({
+        doGenerate: async () => {
+          throw new Error("mock");
+        },
+      });
+
+      const parsedRaw = parseCallOptions(rawModel as any);
+      expect(parsedRaw.modelOverride).toBe(rawModel);
+
+      // 2. ChainCallOptions with modelId: must NOT treat plain options object as LanguageModel
+      const optsWithModelId = { modelId: "gemini-3.1-flash-lite" };
+      const parsedOpts = parseCallOptions(optsWithModelId);
+      expect(parsedOpts.modelOverride).toBeUndefined();
+
+      // 3. ChainCallOptions with model property
+      const optsWithModel = { model: rawModel as any };
+      const parsedModelOpt = parseCallOptions(optsWithModel);
+      expect(parsedModelOpt.modelOverride).toBe(rawModel);
+    });
   });
 });
 
